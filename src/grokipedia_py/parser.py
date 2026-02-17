@@ -11,7 +11,7 @@ from .errors import ParseError
 from .models import Page, PageMetadata, Reference, Section
 
 _FACT_CHECK_PATTERN = re.compile(
-    r"Fact-checked by Grok(?:\s*<!--.*?-->\s*)?\s*([^<\n]{0,120})",
+    r"Fact-checked by Grok(?:\s*<!--.*?-->\s*)*\s*([^<\n]{0,120})",
     flags=re.IGNORECASE | re.DOTALL,
 )
 
@@ -537,4 +537,3 @@ def _is_references_heading(node: _Node) -> bool:
     if node.tag not in {"h2", "h3"}:
         return False
     return _normalize_ws(_render_inline(node)).lower() == "references"
-
