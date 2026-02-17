@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from email.message import Message
-from typing import Protocol
+from typing import Mapping, Protocol
 import urllib.error
 import urllib.request
 
@@ -26,7 +26,7 @@ class Fetcher(Protocol):
         url: str,
         *,
         timeout: float,
-        headers: dict[str, str],
+        headers: Mapping[str, str],
     ) -> FetchResponse:
         ...
 
@@ -47,7 +47,7 @@ class UrllibFetcher:
         url: str,
         *,
         timeout: float,
-        headers: dict[str, str],
+        headers: Mapping[str, str],
     ) -> FetchResponse:
         request_headers = {
             "Accept": DEFAULT_ACCEPT,
@@ -78,4 +78,3 @@ class UrllibFetcher:
             )
         except urllib.error.URLError as exc:
             raise FetchError(f"Network error fetching {url}: {exc}") from exc
-
