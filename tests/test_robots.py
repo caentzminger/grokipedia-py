@@ -8,12 +8,16 @@ from grokipedia_py.robots import assert_allowed_by_robots
 
 
 class FakeFetcher:
-    def __init__(self, *, robots_text: str, robots_status: int = 200, should_raise: bool = False) -> None:
+    def __init__(
+        self, *, robots_text: str, robots_status: int = 200, should_raise: bool = False
+    ) -> None:
         self._robots_text = robots_text
         self._robots_status = robots_status
         self._should_raise = should_raise
 
-    def fetch_text(self, url: str, *, timeout: float, headers: dict[str, str]) -> FetchResponse:
+    def fetch_text(
+        self, url: str, *, timeout: float, headers: dict[str, str]
+    ) -> FetchResponse:
         if self._should_raise:
             raise RuntimeError("network down")
         return FetchResponse(

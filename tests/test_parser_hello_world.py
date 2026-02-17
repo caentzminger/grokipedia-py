@@ -28,5 +28,11 @@ def test_parse_hello_world_fixture() -> None:
     assert "Hello, World!" in subsection.markdown
 
     assert len(page.references) == 1
-    assert page.references[0].text == "[The C Programming Language](https://grokipedia.com/page/The_C_Programming_Language)"
-    assert page.references[0].url == "https://grokipedia.com/page/The_C_Programming_Language"
+    assert (
+        page.references[0].text
+        == "[The C Programming Language](https://grokipedia.com/page/The_C_Programming_Language)"
+    )
+    assert (
+        page.references[0].url
+        == "https://grokipedia.com/page/The_C_Programming_Language"
+    )

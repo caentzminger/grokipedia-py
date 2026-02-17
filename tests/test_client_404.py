@@ -8,7 +8,9 @@ from grokipedia_py.fetch import FetchResponse
 
 
 class FakeFetcher:
-    def fetch_text(self, url: str, *, timeout: float, headers: dict[str, str]) -> FetchResponse:
+    def fetch_text(
+        self, url: str, *, timeout: float, headers: dict[str, str]
+    ) -> FetchResponse:
         if url.endswith("/robots.txt"):
             return FetchResponse(
                 url=url,

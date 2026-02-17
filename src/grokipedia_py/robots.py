@@ -58,4 +58,3 @@ def assert_allowed_by_robots(
     allowed = parser.can_fetch(user_agent, target_url)
     if not allowed:
         raise RobotsDisallowedError(target_url)
-

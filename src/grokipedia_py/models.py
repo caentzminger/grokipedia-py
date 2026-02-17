@@ -38,4 +38,3 @@ class Page:
     sections: list[Section]
     references: list[Reference]
     metadata: PageMetadata
-

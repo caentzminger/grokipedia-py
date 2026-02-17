@@ -27,8 +27,7 @@ class Fetcher(Protocol):
         *,
         timeout: float,
         headers: Mapping[str, str],
-    ) -> FetchResponse:
-        ...
+    ) -> FetchResponse: ...
 
 
 def _decode_payload(payload: bytes, response_headers: Message) -> str:

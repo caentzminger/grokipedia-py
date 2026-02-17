@@ -264,9 +264,7 @@ def _select_article(root: _Node) -> _Node | None:
 
     for article in articles:
         headings = [
-            node
-            for node in _iter_nodes(article)
-            if node.tag in {"h1", "h2", "h3"}
+            node for node in _iter_nodes(article) if node.tag in {"h1", "h2", "h3"}
         ]
         has_h1 = any(node.tag == "h1" for node in headings)
         has_references = any(_is_references_heading(node) for node in headings)
@@ -319,7 +317,9 @@ def _extract_blocks(article: _Node) -> list[_Block]:
         if node.tag == "blockquote":
             quote = _normalize_ws(_render_inline(node))
             if quote:
-                blocks.append(_Block(kind="blockquote", markdown=f"> {quote}", node=node))
+                blocks.append(
+                    _Block(kind="blockquote", markdown=f"> {quote}", node=node)
+                )
             return
 
         for child in node.children:
@@ -340,7 +340,9 @@ def _render_inline(node: _Node | str, *, in_code: bool = False) -> str:
     if tag == "br":
         return "\n"
 
-    children = "".join(_render_inline(child, in_code=in_code) for child in node.children)
+    children = "".join(
+        _render_inline(child, in_code=in_code) for child in node.children
+    )
 
     if tag == "a":
         text = _normalize_ws(children)
@@ -369,7 +371,11 @@ def _render_inline(node: _Node | str, *, in_code: bool = False) -> str:
 
 def _render_list(node: _Node) -> str:
     ordered = node.tag == "ol"
-    items = [child for child in node.children if isinstance(child, _Node) and child.tag == "li"]
+    items = [
+        child
+        for child in node.children
+        if isinstance(child, _Node) and child.tag == "li"
+    ]
     if not items:
         items = [child for child in _iter_nodes(node) if child.tag == "li"]
 
@@ -444,7 +450,9 @@ def _append_markdown(current: str, addition: str) -> str:
     return f"{current}\n\n{addition}"
 
 
-def _build_sections_and_references(blocks: list[_Block]) -> tuple[list[Section], list[Reference]]:
+def _build_sections_and_references(
+    blocks: list[_Block],
+) -> tuple[list[Section], list[Reference]]:
     sections: list[Section] = []
     references: list[Reference] = []
     current_section: Section | None = None
@@ -497,18 +505,26 @@ def _build_sections_and_references(blocks: list[_Block]) -> tuple[list[Section],
         if target_section is None:
             continue
 
-        target_section.markdown = _append_markdown(target_section.markdown, block.markdown)
+        target_section.markdown = _append_markdown(
+            target_section.markdown, block.markdown
+        )
 
         if in_references and block.kind == "list" and block.node is not None:
             start_index = len(references) + 1
-            references.extend(_extract_references_from_list(block.node, start_index=start_index))
+            references.extend(
+                _extract_references_from_list(block.node, start_index=start_index)
+            )
 
     return sections, references
 
 
 def _extract_references_from_list(node: _Node, *, start_index: int) -> list[Reference]:
     references: list[Reference] = []
-    items = [child for child in node.children if isinstance(child, _Node) and child.tag == "li"]
+    items = [
+        child
+        for child in node.children
+        if isinstance(child, _Node) and child.tag == "li"
+    ]
     if not items:
         items = [child for child in _iter_nodes(node) if child.tag == "li"]
 

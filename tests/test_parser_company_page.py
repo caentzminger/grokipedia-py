@@ -28,4 +28,7 @@ def test_parse_company_page_fixture() -> None:
 
     assert len(page.references) == 2
     assert page.references[0].index == 1
-    assert page.references[0].url == "https://find-and-update.company-information.service.gov.uk/company/13065923"
+    assert (
+        page.references[0].url
+        == "https://find-and-update.company-information.service.gov.uk/company/13065923"
+    )

@@ -56,4 +56,3 @@ class HttpxFetcher:
             headers=dict(response.headers.items()),
             text=response.text,
         )
-

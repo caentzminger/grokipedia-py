@@ -57,4 +57,3 @@ def from_html(html: str, *, source_url: str | None = None) -> Page:
         status_code=200,
         fetched_at_utc=datetime.now(timezone.utc),
     )
-
