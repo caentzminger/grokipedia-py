@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Mapping
+
 import pytest
 
 from grokipedia_py.errors import RobotsDisallowedError, RobotsUnavailableError
@@ -16,7 +18,7 @@ class FakeFetcher:
         self._should_raise = should_raise
 
     def fetch_text(
-        self, url: str, *, timeout: float, headers: dict[str, str]
+        self, url: str, *, timeout: float, headers: Mapping[str, str]
     ) -> FetchResponse:
         if self._should_raise:
             raise RuntimeError("network down")

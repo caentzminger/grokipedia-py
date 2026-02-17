@@ -11,7 +11,7 @@ pip install grokipedia-py
 Optional HTTP transport:
 
 ```bash
-pip install "grokipedia-py[http]"
+pip install "grokipedia-py[httpx]"
 ```
 
 ## Quickstart

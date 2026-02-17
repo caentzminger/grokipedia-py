@@ -39,7 +39,9 @@ def local_server() -> Iterator[str]:
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
-        host, port = server.server_address
+        address = server.server_address
+        host = str(address[0])
+        port = int(address[1])
         yield f"http://{host}:{port}"
     finally:
         server.shutdown()

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Mapping
+
 import pytest
 
 from grokipedia_py import from_url
@@ -9,7 +11,7 @@ from grokipedia_py.fetch import FetchResponse
 
 class FakeFetcher:
     def fetch_text(
-        self, url: str, *, timeout: float, headers: dict[str, str]
+        self, url: str, *, timeout: float, headers: Mapping[str, str]
     ) -> FetchResponse:
         if url.endswith("/robots.txt"):
             return FetchResponse(

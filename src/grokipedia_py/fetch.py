@@ -70,7 +70,7 @@ class UrllibFetcher:
             body = exc.read()
             text = _decode_payload(body, exc.headers)
             return FetchResponse(
-                url=exc.geturl() or url,
+                url=exc.url or url,
                 status_code=exc.code,
                 headers=dict(exc.headers.items()),
                 text=text,

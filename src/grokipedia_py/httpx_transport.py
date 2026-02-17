@@ -18,7 +18,7 @@ class HttpxFetcher:
                 import httpx as imported_httpx
             except ImportError as exc:
                 raise ImportError(
-                    "httpx is not installed. Install with: pip install 'grokipedia-py[http]'",
+                    "httpx is not installed. Install with: pip install 'grokipedia-py[httpx]'",
                 ) from exc
             globals()["httpx"] = imported_httpx
 
