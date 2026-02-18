@@ -21,6 +21,19 @@ class Reference:
 
 
 @dataclass(slots=True)
+class InfoboxField:
+    label: str
+    value: str
+
+
+@dataclass(slots=True)
+class LeadMedia:
+    image_url: str
+    caption: str | None
+    alt_text: str | None
+
+
+@dataclass(slots=True)
 class Section:
     id: str | None
     title: str
@@ -35,6 +48,8 @@ class Page:
     slug: str
     title: str
     lede_text: str | None
+    infobox: list[InfoboxField]
+    lead_media: LeadMedia | None
     sections: list[Section]
     references: list[Reference]
     metadata: PageMetadata

@@ -5,10 +5,10 @@ from datetime import datetime, timezone
 from html.parser import HTMLParser
 import re
 from typing import Iterable
-from urllib.parse import unquote, urlparse
+from urllib.parse import parse_qs, unquote, urljoin, urlparse
 
 from .errors import ParseError
-from .models import Page, PageMetadata, Reference, Section
+from .models import InfoboxField, LeadMedia, Page, PageMetadata, Reference, Section
 
 _FACT_CHECK_PATTERN = re.compile(
     r"Fact-checked by Grok(?:\s*<!--.*?-->\s*)*\s*([^<\n]{0,120})",
@@ -124,11 +124,13 @@ def parse_page_html(
     if not title:
         raise ParseError("Could not extract page title")
 
-    lede_text = _extract_lede(blocks)
-    sections, references = _build_sections_and_references(blocks)
-
     canonical_url = _extract_canonical_url(root)
     page_url = source_url or canonical_url or ""
+
+    lede_text = _extract_lede(blocks)
+    infobox = _extract_infobox(article)
+    lead_media = _extract_lead_media(article, base_url=page_url)
+    sections, references = _build_sections_and_references(blocks)
 
     metadata = PageMetadata(
         status_code=status_code,
@@ -143,6 +145,8 @@ def parse_page_html(
         slug=_extract_slug(page_url),
         title=title,
         lede_text=lede_text,
+        infobox=infobox,
+        lead_media=lead_media,
         sections=sections,
         references=references,
         metadata=metadata,
@@ -250,6 +254,80 @@ def _extract_slug(url: str) -> str:
         slug = path[len("/page/") :]
         return unquote(slug)
     return unquote(path.strip("/"))
+
+
+def _extract_infobox(article: _Node) -> list[InfoboxField]:
+    fields: list[InfoboxField] = []
+
+    for container in _iter_nodes(article):
+        direct_children = [
+            child for child in container.children if isinstance(child, _Node)
+        ]
+        if not any(child.tag == "dt" for child in direct_children):
+            continue
+
+        pending_label: str | None = None
+        for child in direct_children:
+            if child.tag == "dt":
+                label = _normalize_ws(_render_inline(child))
+                pending_label = label or None
+                continue
+
+            if child.tag == "dd" and pending_label:
+                value = _normalize_ws(_render_inline(child))
+                if value:
+                    fields.append(InfoboxField(label=pending_label, value=value))
+                pending_label = None
+
+    return fields
+
+
+def _extract_lead_media(article: _Node, *, base_url: str) -> LeadMedia | None:
+    for node in _iter_nodes(article):
+        if node.tag != "figure":
+            continue
+
+        image_node = next(
+            (child for child in _iter_nodes(node) if child.tag == "img"), None
+        )
+        if image_node is None:
+            continue
+
+        raw_src = image_node.attrs.get("src", "").strip()
+        if not raw_src:
+            raw_srcset = image_node.attrs.get("srcset", "").strip()
+            if raw_srcset:
+                raw_src = raw_srcset.split(",", maxsplit=1)[0].split(" ", maxsplit=1)[0]
+        if not raw_src:
+            continue
+
+        image_url = _normalize_image_url(raw_src, base_url)
+
+        caption_node = next(
+            (child for child in _iter_nodes(node) if child.tag == "figcaption"),
+            None,
+        )
+        caption = _normalize_ws(_render_inline(caption_node)) if caption_node else ""
+        caption = caption or None
+
+        alt_text = _normalize_ws(image_node.attrs.get("alt", ""))
+        alt_text = alt_text or None
+
+        return LeadMedia(image_url=image_url, caption=caption, alt_text=alt_text)
+
+    return None
+
+
+def _normalize_image_url(raw_src: str, base_url: str) -> str:
+    resolved = urljoin(base_url, raw_src) if base_url else raw_src
+    parsed = urlparse(resolved)
+    if parsed.path == "/_next/image":
+        query = parse_qs(parsed.query)
+        image_values = query.get("url")
+        if image_values:
+            inner = unquote(image_values[0])
+            return urljoin(base_url, inner) if base_url else inner
+    return resolved
 
 
 def _select_article(root: _Node) -> _Node | None:

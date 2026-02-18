@@ -18,6 +18,8 @@ page = from_url("https://grokipedia.com/page/13065923")
 print(page.title)
 print(page.slug)
 print(page.lede_text)
+print(page.infobox[:3])
+print(page.lead_media)
 print([section.title for section in page.sections])
 print(len(page.references))
 ```
@@ -52,6 +54,8 @@ You can bypass robots enforcement by setting either:
 - `slug`
 - `title`
 - `lede_text`
+- `infobox` (`InfoboxField` list for `dt`/`dd` fact rows)
+- `lead_media` (`LeadMedia` from lead figure image/caption when present)
 - `sections` (`Section` tree with nested `subsections`)
 - `references` (`Reference` list)
 - `metadata` (`PageMetadata`)
