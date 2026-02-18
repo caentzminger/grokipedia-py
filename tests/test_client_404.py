@@ -4,9 +4,9 @@ from typing import Mapping
 
 import pytest
 
-from grokipedia_py import from_url
-from grokipedia_py.errors import PageNotFoundError
-from grokipedia_py.fetch import FetchResponse
+from grokipedia import from_url
+from grokipedia.errors import PageNotFoundError
+from grokipedia.fetch import FetchResponse
 
 
 class FakeFetcher:

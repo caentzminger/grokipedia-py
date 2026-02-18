@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from grokipedia_py import from_html
+from grokipedia import from_html
 
 
 def test_from_html_parses_without_network() -> None:

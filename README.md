@@ -17,7 +17,7 @@ pip install "grokipedia-py[httpx]"
 ## Quickstart
 
 ```python
-from grokipedia_py import from_url
+from grokipedia import from_url
 
 page = from_url("https://grokipedia.com/page/13065923")
 
@@ -31,7 +31,7 @@ print(len(page.references))
 Parse raw HTML without network access:
 
 ```python
-from grokipedia_py import from_html
+from grokipedia import from_html
 
 page = from_html(html, source_url="https://grokipedia.com/page/13065923")
 ```

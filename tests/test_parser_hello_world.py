@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from grokipedia_py import from_html
+from grokipedia import from_html
 
 
 def test_parse_hello_world_fixture() -> None:

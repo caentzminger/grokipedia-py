@@ -8,7 +8,7 @@ from typing import Iterator
 
 import pytest
 
-from grokipedia_py import HttpxFetcher, UrllibFetcher
+from grokipedia import HttpxFetcher, UrllibFetcher
 
 
 class _Handler(BaseHTTPRequestHandler):

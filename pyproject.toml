@@ -1,7 +1,7 @@
 [project]
 name = "grokipedia-py"
 version = "0.1.0"
-description = "Add your description here"
+description = "Structured Grokipedia page parser with robots-aware fetching."
 readme = "README.md"
 authors = [
     { name = "caentzminger", email = "112503481+caentzminger@users.noreply.github.com" }
@@ -17,6 +17,9 @@ httpx = [
 [build-system]
 requires = ["uv_build>=0.10.3,<0.11.0"]
 build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "grokipedia"
 
 [dependency-groups]
 dev = [

@@ -4,9 +4,9 @@ from typing import Mapping
 
 import pytest
 
-from grokipedia_py.errors import RobotsDisallowedError, RobotsUnavailableError
-from grokipedia_py.fetch import FetchResponse
-from grokipedia_py.robots import assert_allowed_by_robots
+from grokipedia.errors import RobotsDisallowedError, RobotsUnavailableError
+from grokipedia.fetch import FetchResponse
+from grokipedia.robots import assert_allowed_by_robots
 
 
 class FakeFetcher:
