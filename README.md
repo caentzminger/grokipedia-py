@@ -22,6 +22,7 @@ print(page.infobox[:3])
 print(page.lead_media)
 print([section.title for section in page.sections])
 print(len(page.references))
+print(page.to_json(indent=2))
 ```
 
 Parse raw HTML without network access:
@@ -59,6 +60,8 @@ You can bypass robots enforcement by setting either:
 - `sections` (`Section` tree with nested `subsections`)
 - `references` (`Reference` list)
 - `metadata` (`PageMetadata`)
+
+`Page` also includes `to_json()` for simple JSON serialization.
 
 ## Exceptions
 

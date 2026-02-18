@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from datetime import datetime
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
+import json
 
 
 @dataclass(slots=True)
@@ -53,3 +54,19 @@ class Page:
     sections: list[Section]
     references: list[Reference]
     metadata: PageMetadata
+
+    def to_json(self, *, indent: int | None = None) -> str:
+        return json.dumps(
+            asdict(self),
+            ensure_ascii=False,
+            indent=indent,
+            default=_json_default,
+        )
+
+
+def _json_default(value: object) -> str:
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            return value.isoformat()
+        return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from grokipedia import from_html
 
 
@@ -102,3 +104,25 @@ def test_from_html_parses_infobox_and_lead_media() -> None:
     )
     assert page.lead_media.caption == "Jeffrey Epstein"
     assert page.lead_media.alt_text == "Jeffrey Epstein"
+
+
+def test_page_to_json_serializes_nested_content() -> None:
+    html = """
+    <html>
+      <body>
+        <article class='text-[16px]'>
+          <h1 id='sample'>Sample Page</h1>
+          <p>This is a sample lede.</p>
+          <h2 id='overview'>Overview</h2>
+          <p>This is body content.</p>
+        </article>
+      </body>
+    </html>
+    """
+
+    page = from_html(html, source_url="https://grokipedia.com/page/sample")
+    payload = json.loads(page.to_json())
+
+    assert payload["title"] == "Sample Page"
+    assert payload["sections"][0]["title"] == "Overview"
+    assert payload["metadata"]["fetched_at_utc"].endswith("Z")
