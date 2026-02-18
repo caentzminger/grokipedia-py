@@ -1,11 +1,16 @@
 # grokipedia-py
 
-Near-zero dependency Python client for extracting structured content from Grokipedia pages.
+Zero-dependency Python client for extracting structured content from Grokipedia pages.
 
 ## Install
 
 ```bash
 pip install grokipedia-py
+```
+
+```bash
+uv pip install https://github.com/caentzminger/grokipedia-py.git
+uv add "grokipedia-py @ git+https://github.com/caentzminger/grokipedia-py.git"
 ```
 
 ## Quickstart
@@ -140,7 +145,13 @@ You can bypass robots enforcement by setting either:
 - `links` (ordered unique links extracted from the main article)
 - `metadata` (`PageMetadata`, including optional `keywords`)
 
-`Page` also includes `markdown`, `to_dict()`, and `to_json()` for simple serialization.
+`Page` also includes:
+
+- `lede_text` (alias of `intro_text`)
+- `lead_media` (alias of `lead_figure`)
+- `markdown`
+- `to_dict()` / `to_json()`
+- `from_dict()` / `from_json()`
 
 ## Exceptions
 

@@ -3,7 +3,7 @@
 ## Project Structure & Module Organization
 
 - Core package code lives in `src/grokipedia/`.
-- Main modules are split by concern: `client.py` (public entry points), `fetch.py`/`robots.py` (network and robots handling), `parser.py` (HTML parsing), `models.py` (typed data models), and `errors.py` (exception hierarchy).
+- Main modules are split by concern: `client.py` (public entry points), `fetch.py`/`robots.py` (network and robots handling), `sitemaps.py` (cached sitemap index/lookup), `parser.py` (HTML parsing), `models.py` (typed data models), `_urls.py` (URL/user-agent helpers), `_types.py` (typing protocols), and `errors.py` (exception hierarchy).
 - Tests are in `tests/`, with reusable HTML fixtures in `tests/fixtures/`.
 - Project metadata and tooling config live in `pyproject.toml`; task shortcuts live in `Justfile`.
 
