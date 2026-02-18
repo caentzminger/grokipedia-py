@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from html.parser import HTMLParser
-import logging
 from typing import Iterable
 from urllib.parse import parse_qs, unquote, urljoin, urlparse
 
@@ -213,10 +213,12 @@ def _text_content(node: _Node, *, preserve_whitespace: bool = False) -> str:
 
 
 def _normalize_ws(text: str) -> str:
+    """Collapse runs of whitespace into single spaces."""
     return " ".join(text.split())
 
 
 def _extract_meta_title(root: _Node) -> str | None:
+    """Extract a best-effort title from head metadata and <title>."""
     for node in _iter_nodes(root):
         if node.tag == "meta":
             prop = node.attrs.get("property", "")
@@ -235,6 +237,7 @@ def _extract_meta_title(root: _Node) -> str | None:
 
 
 def _extract_canonical_url(root: _Node) -> str | None:
+    """Extract canonical page URL from link/meta tags."""
     for node in _iter_nodes(root):
         if node.tag == "link" and node.attrs.get("rel", "").lower() == "canonical":
             href = node.attrs.get("href", "").strip()
@@ -255,6 +258,7 @@ def _extract_canonical_url(root: _Node) -> str | None:
 
 
 def _extract_description(root: _Node) -> str | None:
+    """Extract meta description content from head tags."""
     for node in _iter_nodes(root):
         if node.tag != "meta":
             continue
@@ -270,6 +274,7 @@ def _extract_description(root: _Node) -> str | None:
 
 
 def _extract_keywords(root: _Node) -> list[str] | None:
+    """Extract comma-separated keywords from metadata."""
     for node in _iter_nodes(root):
         if node.tag != "meta":
             continue
@@ -292,6 +297,7 @@ def _extract_keywords(root: _Node) -> list[str] | None:
 
 
 def _extract_slug(url: str) -> str:
+    """Extract page slug from a URL, decoding percent escapes."""
     if not url:
         return ""
 
@@ -305,6 +311,7 @@ def _extract_slug(url: str) -> str:
 
 
 def _extract_links(article: _Node, *, base_url: str) -> list[str]:
+    """Extract unique, ordered links from article content."""
     links: list[str] = []
     seen: set[str] = set()
 
@@ -327,6 +334,7 @@ def _extract_links(article: _Node, *, base_url: str) -> list[str]:
 
 
 def _extract_infobox(article: _Node) -> list[InfoboxField]:
+    """Extract dt/dd infobox pairs from article content."""
     fields: list[InfoboxField] = []
 
     for container in _iter_nodes(article):
@@ -353,6 +361,7 @@ def _extract_infobox(article: _Node) -> list[InfoboxField]:
 
 
 def _extract_lead_figure(article: _Node, *, base_url: str) -> LeadFigure | None:
+    """Extract the first figure in the article as lead media."""
     for node in _iter_nodes(article):
         if node.tag != "figure":
             continue
@@ -371,6 +380,7 @@ def _extract_lead_figure(article: _Node, *, base_url: str) -> LeadFigure | None:
 
 
 def _extract_figure_data(node: _Node, *, base_url: str) -> _FigureData | None:
+    """Extract normalized image URL, caption, and alt text from a figure."""
     image_node = next(
         (child for child in _iter_nodes(node) if child.tag == "img"), None
     )
@@ -401,6 +411,7 @@ def _extract_figure_data(node: _Node, *, base_url: str) -> _FigureData | None:
 
 
 def _normalize_image_url(raw_src: str, base_url: str) -> str:
+    """Resolve image URLs, unwrapping Next.js /_next/image wrappers."""
     resolved = urljoin(base_url, raw_src) if base_url else raw_src
     parsed = urlparse(resolved)
     if parsed.path == "/_next/image":
@@ -414,6 +425,7 @@ def _normalize_image_url(raw_src: str, base_url: str) -> str:
 
 
 def _select_article(root: _Node) -> _Node | None:
+    """Pick the main article node using class/heading heuristics."""
     articles = [node for node in _iter_nodes(root) if node.tag == "article"]
     if not articles:
         return None
@@ -436,6 +448,7 @@ def _select_article(root: _Node) -> _Node | None:
 
 
 def _extract_blocks(article: _Node, *, base_url: str) -> list[_Block]:
+    """Flatten article DOM into structured content blocks."""
     blocks: list[_Block] = []
 
     def visit(node: _Node) -> None:
@@ -502,6 +515,7 @@ def _extract_blocks(article: _Node, *, base_url: str) -> list[_Block]:
 
 
 def _render_inline(node: _Node | str, *, in_code: bool = False) -> str:
+    """Render inline DOM content as plain text for extraction."""
     if isinstance(node, str):
         return node
 
@@ -530,6 +544,7 @@ def _render_inline(node: _Node | str, *, in_code: bool = False) -> str:
 
 
 def _render_list(node: _Node) -> str:
+    """Render ul/ol nodes as markdown-like list lines."""
     ordered = node.tag == "ol"
     items = [
         child
@@ -552,6 +567,7 @@ def _render_list(node: _Node) -> str:
 
 
 def _render_pre(node: _Node) -> str:
+    """Render pre/code content while preserving internal whitespace."""
     code_node: _Node | None = None
     for child in node.children:
         if isinstance(child, _Node) and child.tag == "code":

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import json
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
-import json
-from typing import Any
+from typing import Any, Mapping
 
 
 @dataclass(slots=True)
@@ -136,6 +136,32 @@ class Page:
             indent=indent,
         )
 
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> Page:
+        metadata_raw = data.get("metadata")
+        if not isinstance(metadata_raw, Mapping):
+            raise ValueError("Page data must include object field 'metadata'")
+
+        return cls(
+            url=str(data.get("url", "")),
+            slug=str(data.get("slug", "")),
+            title=str(data.get("title", "")),
+            intro_text=_optional_str(data.get("intro_text")),
+            infobox=_infobox_from_data(data.get("infobox")),
+            lead_figure=_lead_figure_from_data(data.get("lead_figure")),
+            sections=_sections_from_data(data.get("sections")),
+            references=_references_from_data(data.get("references")),
+            links=_links_from_data(data.get("links")),
+            metadata=_metadata_from_data(metadata_raw),
+        )
+
+    @classmethod
+    def from_json(cls, payload: str) -> Page:
+        data = json.loads(payload)
+        if not isinstance(data, dict):
+            raise ValueError("Page JSON must decode to an object")
+        return cls.from_dict(data)
+
 
 def _render_markdown_media(
     *,
@@ -159,3 +185,174 @@ def _to_dict_compatible(value: Any) -> Any:
     if isinstance(value, list):
         return [_to_dict_compatible(item) for item in value]
     return value
+
+
+def _optional_str(value: Any) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value
+    return str(value)
+
+
+def _parse_datetime_utc(value: Any) -> datetime:
+    if isinstance(value, datetime):
+        dt = value
+    elif isinstance(value, str):
+        normalized = value.strip()
+        if normalized.endswith("Z"):
+            normalized = normalized[:-1] + "+00:00"
+        dt = datetime.fromisoformat(normalized)
+    else:
+        raise ValueError("metadata.fetched_at_utc must be an ISO datetime string")
+
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def _metadata_from_data(value: Mapping[str, Any]) -> PageMetadata:
+    status_code_raw = value.get("status_code")
+    if not isinstance(status_code_raw, int):
+        raise ValueError("metadata.status_code must be an integer")
+
+    return PageMetadata(
+        status_code=status_code_raw,
+        fetched_at_utc=_parse_datetime_utc(value.get("fetched_at_utc")),
+        canonical_url=_optional_str(value.get("canonical_url")),
+        description=_optional_str(value.get("description")),
+        keywords=_keywords_from_data(value.get("keywords")),
+    )
+
+
+def _keywords_from_data(value: Any) -> list[str] | None:
+    if value is None:
+        return None
+    if not isinstance(value, list):
+        raise ValueError("metadata.keywords must be an array of strings or null")
+    return [str(item) for item in value if str(item)]
+
+
+def _infobox_from_data(value: Any) -> list[InfoboxField]:
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise ValueError("infobox must be an array")
+
+    fields: list[InfoboxField] = []
+    for item in value:
+        if not isinstance(item, Mapping):
+            continue
+        fields.append(
+            InfoboxField(
+                label=str(item.get("label", "")),
+                value=str(item.get("value", "")),
+            )
+        )
+    return fields
+
+
+def _lead_figure_from_data(value: Any) -> LeadFigure | None:
+    if value is None:
+        return None
+    if not isinstance(value, Mapping):
+        raise ValueError("lead_figure must be an object or null")
+
+    image_url = str(value.get("image_url", ""))
+    if not image_url:
+        return None
+
+    return LeadFigure(
+        image_url=image_url,
+        caption=_optional_str(value.get("caption")),
+        alt_text=_optional_str(value.get("alt_text")),
+    )
+
+
+def _section_media_from_data(value: Any) -> list[SectionMedia]:
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise ValueError("section media must be an array")
+
+    media: list[SectionMedia] = []
+    for index, item in enumerate(value, start=1):
+        if not isinstance(item, Mapping):
+            continue
+
+        raw_index = item.get("index")
+        media_index = (
+            raw_index if isinstance(raw_index, int) and raw_index > 0 else index
+        )
+
+        image_url = str(item.get("image_url", ""))
+        if not image_url:
+            continue
+
+        media.append(
+            SectionMedia(
+                index=media_index,
+                image_url=image_url,
+                caption=_optional_str(item.get("caption")),
+                alt_text=_optional_str(item.get("alt_text")),
+            )
+        )
+    return media
+
+
+def _section_from_data(value: Any) -> Section:
+    if not isinstance(value, Mapping):
+        raise ValueError("section entries must be objects")
+
+    return Section(
+        id=_optional_str(value.get("id")),
+        title=str(value.get("title", "")),
+        level=int(value.get("level", 2)),
+        text=str(value.get("text", "")),
+        media=_section_media_from_data(value.get("media")),
+        subsections=_sections_from_data(value.get("subsections")),
+    )
+
+
+def _sections_from_data(value: Any) -> list[Section]:
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise ValueError("sections must be an array")
+
+    sections: list[Section] = []
+    for item in value:
+        sections.append(_section_from_data(item))
+    return sections
+
+
+def _references_from_data(value: Any) -> list[Reference]:
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise ValueError("references must be an array")
+
+    references: list[Reference] = []
+    for index, item in enumerate(value, start=1):
+        if not isinstance(item, Mapping):
+            continue
+
+        raw_index = item.get("index")
+        ref_index = raw_index if isinstance(raw_index, int) and raw_index > 0 else index
+
+        references.append(
+            Reference(
+                index=ref_index,
+                text=str(item.get("text", "")),
+                url=_optional_str(item.get("url")),
+            )
+        )
+    return references
+
+
+def _links_from_data(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise ValueError("links must be an array")
+    return [str(item) for item in value if str(item)]

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 
 from grokipedia import from_html
+from grokipedia.models import Page
 
 
 def test_from_html_parses_without_network() -> None:
@@ -252,3 +253,59 @@ def test_page_to_json_wraps_to_dict() -> None:
     assert payload_from_dict["sections"][0]["title"] == "Overview"
     assert payload_from_dict["links"] == []
     assert payload_from_dict["metadata"]["fetched_at_utc"].endswith("Z")
+
+
+def test_page_from_dict_round_trip() -> None:
+    page = from_html(
+        """
+        <html>
+          <body>
+            <article class='text-[16px]'>
+              <h1 id='sample'>Sample Page</h1>
+              <p>Intro content.</p>
+              <h2 id='overview'>Overview</h2>
+              <p>Body content.</p>
+            </article>
+          </body>
+        </html>
+        """,
+        source_url="https://grokipedia.com/page/sample",
+    )
+
+    payload = page.to_dict()
+    restored = Page.from_dict(payload)
+
+    assert restored.to_dict() == payload
+    assert restored.metadata.fetched_at_utc.tzinfo is not None
+
+
+def test_page_from_json_round_trip() -> None:
+    page = from_html(
+        """
+        <html>
+          <body>
+            <article class='text-[16px]'>
+              <h1 id='sample'>Sample Page</h1>
+              <p>Intro content.</p>
+              <h2 id='overview'>Overview</h2>
+              <p>Body content.</p>
+            </article>
+          </body>
+        </html>
+        """,
+        source_url="https://grokipedia.com/page/sample",
+    )
+
+    payload = page.to_json()
+    restored = Page.from_json(payload)
+
+    assert restored.to_dict() == page.to_dict()
+
+
+def test_page_from_json_rejects_non_object_payload() -> None:
+    try:
+        Page.from_json("[]")
+    except ValueError as exc:
+        assert "object" in str(exc)
+    else:
+        raise AssertionError("Expected ValueError for non-object payload")
