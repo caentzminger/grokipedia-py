@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from .client import from_html, from_url
 from .errors import (
     FetchError,
@@ -22,6 +24,8 @@ from .models import (
 )
 
 SITEMAP_INDEX = "https://assets.grokipedia.com/sitemap/sitemap-index.xml"
+
+logging.getLogger(__name__).addHandler(logging.NullHandler())
 
 __all__ = [
     "FetchError",

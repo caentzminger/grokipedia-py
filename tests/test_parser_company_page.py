@@ -21,8 +21,6 @@ def test_parse_company_page_fixture() -> None:
 
     assert page.sections[0].subsections
     assert page.sections[0].subsections[0].title == "Company Profile"
-
-    assert page.metadata.fact_check_label == "Fact-checked by Grok last month"
     assert page.metadata.canonical_url == "https://grokipedia.com/page/13065923"
     assert page.metadata.description == "Harris Professional Solutions Limited overview"
 

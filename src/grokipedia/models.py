@@ -10,7 +10,6 @@ from typing import Any
 class PageMetadata:
     status_code: int
     fetched_at_utc: datetime
-    fact_check_label: str | None
     canonical_url: str | None
     description: str | None
     keywords: list[str] | None

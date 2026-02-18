@@ -35,6 +35,17 @@ from grokipedia import from_html
 page = from_html(html, source_url="https://grokipedia.com/page/13065923")
 ```
 
+## Logging
+
+The library uses Python's standard `logging` module (logger namespace: `grokipedia`).
+
+```python
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logging.getLogger("grokipedia").setLevel(logging.DEBUG)
+```
+
 ## Robots behavior
 
 `from_url()` enforces `robots.txt` by default.

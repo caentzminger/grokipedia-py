@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from html.parser import HTMLParser
-import re
+import logging
 from typing import Iterable
 from urllib.parse import parse_qs, unquote, urljoin, urlparse
 
@@ -18,10 +18,7 @@ from .models import (
     SectionMedia,
 )
 
-_FACT_CHECK_PATTERN = re.compile(
-    r"Fact-checked by Grok(?:\s*<!--.*?-->\s*)*\s*([^<\n]{0,120})",
-    flags=re.IGNORECASE | re.DOTALL,
-)
+logger = logging.getLogger(__name__)
 
 _VOID_TAGS = {
     "area",
@@ -122,6 +119,7 @@ def parse_page_html(
     status_code: int,
     fetched_at_utc: datetime | None = None,
 ) -> Page:
+    logger.debug("Parsing HTML source_url=%s status_code=%s", source_url, status_code)
     builder = _DOMBuilder()
     try:
         builder.feed(html)
@@ -152,10 +150,23 @@ def parse_page_html(
     metadata = PageMetadata(
         status_code=status_code,
         fetched_at_utc=fetched_at_utc or datetime.now(timezone.utc),
-        fact_check_label=_extract_fact_check_label(html),
         canonical_url=canonical_url,
         description=_extract_description(root),
         keywords=_extract_keywords(root),
+    )
+
+    media_count = sum(
+        len(section.media)
+        + sum(len(subsection.media) for subsection in section.subsections)
+        for section in sections
+    )
+    logger.debug(
+        "Parsed page title=%s sections=%d references=%d media=%d keywords=%d",
+        title,
+        len(sections),
+        len(references),
+        media_count,
+        len(metadata.keywords or []),
     )
 
     return Page(
@@ -276,18 +287,6 @@ def _extract_keywords(root: _Node) -> list[str] | None:
             return values
 
     return None
-
-
-def _extract_fact_check_label(html: str) -> str | None:
-    match = _FACT_CHECK_PATTERN.search(html)
-    if not match:
-        return None
-
-    suffix = _normalize_ws(match.group(1))
-    if not suffix:
-        return "Fact-checked by Grok"
-
-    return f"Fact-checked by Grok {suffix}"
 
 
 def _extract_slug(url: str) -> str:
