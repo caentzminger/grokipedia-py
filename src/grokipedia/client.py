@@ -2,19 +2,18 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import logging
-from urllib.parse import quote, unquote, urlparse
-from xml.etree import ElementTree
+from urllib.parse import quote
 
 from .errors import (
     HttpStatusError,
     PageNotFoundError,
-    ParseError,
 )
 from .fetch import FetchResponse, Fetcher, UrllibFetcher
 from .models import Page
 from .parser import parse_page_html
 from .robots import assert_allowed_by_robots
 from .search import run_search
+from .sitemaps import SitemapManifest
 
 DEFAULT_USER_AGENT = "grokipedia-py/0.1"
 DEFAULT_BASE_URL = "https://grokipedia.com"
@@ -175,23 +174,6 @@ def _page_url_from_title(title: str, *, base_url: str) -> str:
     return f"{_resolve_base_url(base_url)}/page/{slug}"
 
 
-def _canonicalize_url(url: str) -> str:
-    parsed = urlparse(url)
-    scheme = parsed.scheme.lower()
-    netloc = parsed.netloc.lower()
-    path = unquote(parsed.path)
-    return f"{scheme}://{netloc}{path}"
-
-
-def _page_url_from_slug(slug: str, *, base_url: str) -> str:
-    normalized_slug = slug.strip()
-    if not normalized_slug:
-        raise ValueError("slug must not be empty")
-
-    encoded_slug = quote(normalized_slug, safe="!$&'()*+,;=:@._~-")
-    return f"{_resolve_base_url(base_url)}/page/{encoded_slug}"
-
-
 def page(
     title: str,
     *,
@@ -237,24 +219,6 @@ def search(
     )
 
 
-def _parse_sitemap_locs(xml_text: str) -> list[str]:
-    try:
-        root = ElementTree.fromstring(xml_text)
-    except ElementTree.ParseError as exc:
-        raise ParseError(f"Unable to parse sitemap XML: {exc}") from exc
-
-    urls: list[str] = []
-    seen: set[str] = set()
-    for node in root.findall(".//{*}loc"):
-        value = (node.text or "").strip()
-        if not value or value in seen:
-            continue
-        seen.add(value)
-        urls.append(value)
-
-    return urls
-
-
 class Grokipedia:
     def __init__(
         self,
@@ -277,10 +241,11 @@ class Grokipedia:
         self.allow_robots_override = allow_robots_override
         self.user_agent = _resolve_user_agent(user_agent)
         self.fetcher = fetcher or UrllibFetcher()
-
-        self._sitemap_index_urls_cache: list[str] | None = None
-        self._manifest_by_sitemap: dict[str, list[str]] = {}
-        self._loaded_sitemaps: set[str] = set()
+        self._sitemap_manifest = SitemapManifest(
+            sitemap_index_url=self.sitemap_index_url,
+            fetch_text=_fetch_text,
+            fetcher=self.fetcher,
+        )
 
     def _resolve_call_options(
         self,
@@ -396,71 +361,6 @@ class Grokipedia:
             base_url=self.base_url,
         )
 
-    def _get_sitemap_index_urls(
-        self,
-        *,
-        timeout: float,
-        respect_robots: bool,
-        allow_robots_override: bool,
-        user_agent: str,
-    ) -> list[str]:
-        if self._sitemap_index_urls_cache is not None:
-            return self._sitemap_index_urls_cache
-
-        response = _fetch_text(
-            self.sitemap_index_url,
-            timeout=timeout,
-            respect_robots=respect_robots,
-            allow_robots_override=allow_robots_override,
-            user_agent=user_agent,
-            fetcher=self.fetcher,
-            not_found_is_page=False,
-        )
-        sitemap_urls = _parse_sitemap_locs(response.text)
-
-        previous_manifest = self._manifest_by_sitemap
-        self._manifest_by_sitemap = {
-            sitemap_url: list(previous_manifest.get(sitemap_url, []))
-            for sitemap_url in sitemap_urls
-        }
-        self._loaded_sitemaps.intersection_update(self._manifest_by_sitemap.keys())
-        self._sitemap_index_urls_cache = sitemap_urls
-
-        return sitemap_urls
-
-    def _get_or_load_child_sitemap_urls(
-        self,
-        sitemap_url: str,
-        *,
-        timeout: float,
-        respect_robots: bool,
-        allow_robots_override: bool,
-        user_agent: str,
-    ) -> list[str]:
-        if sitemap_url in self._loaded_sitemaps:
-            return self._manifest_by_sitemap.get(sitemap_url, [])
-
-        response = _fetch_text(
-            sitemap_url,
-            timeout=timeout,
-            respect_robots=respect_robots,
-            allow_robots_override=allow_robots_override,
-            user_agent=user_agent,
-            fetcher=self.fetcher,
-            not_found_is_page=False,
-        )
-        page_urls = _parse_sitemap_locs(response.text)
-        self._manifest_by_sitemap[sitemap_url] = page_urls
-        self._loaded_sitemaps.add(sitemap_url)
-
-        return page_urls
-
-    def _manifest_snapshot(self) -> dict[str, list[str]]:
-        return {
-            sitemap_url: list(page_urls)
-            for sitemap_url, page_urls in self._manifest_by_sitemap.items()
-        }
-
     def refresh_manifest(
         self,
         *,
@@ -481,17 +381,12 @@ class Grokipedia:
             user_agent=user_agent,
         )
 
-        self._sitemap_index_urls_cache = None
-        self._manifest_by_sitemap = {}
-        self._loaded_sitemaps.clear()
-
-        self._get_sitemap_index_urls(
+        return self._sitemap_manifest.refresh(
             timeout=resolved_timeout,
             respect_robots=resolved_respect_robots,
             allow_robots_override=resolved_allow_robots_override,
             user_agent=resolved_user_agent,
         )
-        return self._manifest_snapshot()
 
     def find_page_url(
         self,
@@ -515,24 +410,10 @@ class Grokipedia:
         )
 
         candidate_url = _page_url_from_title(title, base_url=self.base_url)
-        candidate_key = _canonicalize_url(candidate_url)
-
-        for sitemap_url in self._get_sitemap_index_urls(
+        return self._sitemap_manifest.find_matching_url(
+            candidate_url,
             timeout=resolved_timeout,
             respect_robots=resolved_respect_robots,
             allow_robots_override=resolved_allow_robots_override,
             user_agent=resolved_user_agent,
-        ):
-            page_urls = self._get_or_load_child_sitemap_urls(
-                sitemap_url,
-                timeout=resolved_timeout,
-                respect_robots=resolved_respect_robots,
-                allow_robots_override=resolved_allow_robots_override,
-                user_agent=resolved_user_agent,
-            )
-
-            for page_url in page_urls:
-                if _canonicalize_url(page_url) == candidate_key:
-                    return page_url
-
-        return None
+        )
