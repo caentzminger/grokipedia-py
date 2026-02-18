@@ -16,10 +16,12 @@ class FakeFetcher:
         self._robots_text = robots_text
         self._robots_status = robots_status
         self._should_raise = should_raise
+        self.request_urls: list[str] = []
 
     def fetch_text(
         self, url: str, *, timeout: float, headers: Mapping[str, str]
     ) -> FetchResponse:
+        self.request_urls.append(url)
         if self._should_raise:
             raise RuntimeError("network down")
         return FetchResponse(
@@ -75,3 +77,23 @@ def test_robots_unavailable_on_fetch_failure() -> None:
             timeout=5,
             user_agent="grokipedia-py-test",
         )
+
+
+def test_robots_fetches_once_per_fetcher_for_same_origin() -> None:
+    fetcher = FakeFetcher(robots_text="User-Agent: *\nDisallow: /api/\n")
+
+    assert_allowed_by_robots(
+        "https://grokipedia.com/page/13065923",
+        fetcher=fetcher,
+        timeout=5,
+        user_agent="grokipedia-py-test",
+    )
+    with pytest.raises(RobotsDisallowedError):
+        assert_allowed_by_robots(
+            "https://grokipedia.com/api/private",
+            fetcher=fetcher,
+            timeout=5,
+            user_agent="grokipedia-py-test",
+        )
+
+    assert fetcher.request_urls.count("https://grokipedia.com/robots.txt") == 1

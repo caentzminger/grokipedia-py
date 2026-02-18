@@ -194,4 +194,5 @@ def test_search_falls_back_to_html_when_robots_disallow_api() -> None:
 
     assert all("/api/full-text-search?" not in url for url in fetcher.request_urls)
     assert fetcher.request_urls[-1] == "https://grokipedia.com/search?q=robots"
+    assert fetcher.request_urls.count("https://grokipedia.com/robots.txt") == 1
     assert results == ["https://grokipedia.com/page/Robots_Fallback"]
