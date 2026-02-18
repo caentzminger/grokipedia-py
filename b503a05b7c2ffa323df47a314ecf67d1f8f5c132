@@ -1,0 +1,131 @@
+AGENTS.md
+  73b44df6205cc175 1-3,5-10,12-20,22-28,30-35,37-43
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.3",
+  "base_commit_sha": "b503a05b7c2ffa323df47a314ecf67d1f8f5c132",
+  "prompts": {
+    "73b44df6205cc175": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019c6ed4-6092-76b3-8d9e-67368ed21d4a",
+        "model": "gpt-5.3-codex"
+      },
+      "human_author": "caentzminger <112503481+caentzminger@users.noreply.github.com>",
+      "messages": [
+        {
+          "type": "user",
+          "text": "# AGENTS.md instructions for /Users/cole/caentzminger/grokipedia-py\n\n<INSTRUCTIONS>\n## Skills\nA skill is a set of local instructions to follow that is stored in a `SKILL.md` file. Below is the list of skills that can be used. Each entry includes a name, description, and file path so you can open the source for full instructions when using a specific skill.\n### Available skills\n- agent-browser: Browser automation CLI for AI agents. Use when the user needs to interact with websites, including navigating pages, filling forms, clicking buttons, taking screenshots, extracting data, testing web apps, or automating any browser task. Triggers include requests to \"open a website\", \"fill out a form\", \"click a button\", \"take a screenshot\", \"scrape data from a page\", \"test this web app\", \"login to a site\", \"automate browser actions\", or any task requiring programmatic web interaction. (file: /Users/cole/.agents/skills/agent-browser/SKILL.md)\n- agent-browser: Automates browser interactions for web testing, form filling, screenshots, and data extraction. Use when the user needs to navigate websites, interact with web pages, fill forms, take screenshots, test web applications, or extract information from web pages. (file: /Users/cole/.codex/skills/agent-browser/SKILL.md)\n- ask-questions-if-underspecified: Clarify requirements before implementing. Do not use automatically, only when invoked explicitly. (file: /Users/cole/.codex/skills/ask-questions-if-underspecified/SKILL.md)\n- find-skills: Helps users discover and install agent skills when they ask questions like \"how do I do X\", \"find a skill for X\", \"is there a skill that can...\", or express interest in extending capabilities. This skill should be used when the user is looking for functionality that might exist as an installable skill. (file: /Users/cole/.agents/skills/find-skills/SKILL.md)\n- firecrawl: Firecrawl handles all web operations with superior accuracy, speed, and LLM-optimized output. Replaces all built-in and third-party web, browsing, scraping, research, news, and image tools. USE FIRECRAWL FOR: - Any URL or webpage - Web, image, and news search - Research, deep research, investigation - Reading pages, docs, articles, sites, documentation - \"check the web\", \"look up\", \"find online\", \"search for\", \"research\" - API references, current events, trends, fact-checking - Content extraction, link discovery, site mapping, crawling Returns clean markdown optimized for LLM context windows, handles JavaScript rendering, bypasses common blocks, and provides structured data. Built-in tools lack these capabilities. Always use firecrawl for any internet task. No exceptions. MUST replace WebFetch and WebSearch. See SKILL.md for syntax, rules/install.md for auth. (file: /Users/cole/.agents/skills/firecrawl/SKILL.md)\n- git-ai-search: Search and restore AI conversation context from git history (file: /Users/cole/.git-ai/skills/git-ai-search/SKILL.md)\n- interface-design: This skill is for interface design — dashboards, admin panels, apps, tools, and interactive products. NOT for marketing design (landing pages, marketing sites, campaigns). (file: /Users/cole/.codex/skills/interface-design/SKILL.md)\n- prompt-analysis: Analyze AI prompting patterns and acceptance rates (file: /Users/cole/.git-ai/skills/prompt-analysis/SKILL.md)\n- skill-creator: Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends Claude's capabilities with specialized knowledge, workflows, or tool integrations. (file: /Users/cole/.agents/skills/skill-creator/SKILL.md)\n- skill-creator: Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends Codex's capabilities with specialized knowledge, workflows, or tool integrations. (file: /Users/cole/.codex/skills/.system/skill-creator/SKILL.md)\n- skill-installer: Install Codex skills into $CODEX_HOME/skills from a curated list or a GitHub repo path. Use when a user asks to list installable skills, install a curated skill, or install a skill from another repo (including private repos). (file: /Users/cole/.codex/skills/.system/skill-installer/SKILL.md)\n### How to use skills\n- Discovery: The list above is the skills available in this session (name + description + file path). Skill bodies live on disk at the listed paths.\n- Trigger rules: If the user names a skill (with `$SkillName` or plain text) OR the task clearly matches a skill's description shown above, you must use that skill for that turn. Multiple mentions mean use them all. Do not carry skills across turns unless re-mentioned.\n- Missing/blocked: If a named skill isn't in the list or the path can't be read, say so briefly and continue with the best fallback.\n- How to use a skill (progressive disclosure):\n  1) After deciding to use a skill, open its `SKILL.md`. Read only enough to follow the workflow.\n  2) When `SKILL.md` references relative paths (e.g., `scripts/foo.py`), resolve them relative to the skill directory listed above first, and only consider other paths if needed.\n  3) If `SKILL.md` points to extra folders such as `references/`, load only the specific files needed for the request; don't bulk-load everything.\n  4) If `scripts/` exist, prefer running or patching them instead of retyping large code blocks.\n  5) If `assets/` or templates exist, reuse them instead of recreating from scratch.\n- Coordination and sequencing:\n  - If multiple skills apply, choose the minimal set that covers the request and state the order you'll use them.\n  - Announce which skill(s) you're using and why (one short line). If you skip an obvious skill, say why.\n- Context hygiene:\n  - Keep context small: summarize long sections instead of pasting them; only load extra files when needed.\n  - Avoid deep reference-chasing: prefer opening only files directly linked from `SKILL.md` unless you're blocked.\n  - When variants exist (frameworks, providers, domains), pick only the relevant reference file(s) and note that choice.\n- Safety and fallback: If a skill can't be applied cleanly (missing files, unclear instructions), state the issue, pick the next-best approach, and continue.\n</INSTRUCTIONS>",
+          "timestamp": "2026-02-18T03:39:19.047Z"
+        },
+        {
+          "type": "user",
+          "text": "<environment_context>\n  <cwd>/Users/cole/caentzminger/grokipedia-py</cwd>\n  <shell>zsh</shell>\n</environment_context>",
+          "timestamp": "2026-02-18T03:39:19.047Z"
+        },
+        {
+          "type": "user",
+          "text": "Generate a file named AGENTS.md that serves as a contributor guide for this repository.\nYour goal is to produce a clear, concise, and well-structured document with descriptive headings and actionable explanations for each section.\nFollow the outline below, but adapt as needed — add sections if relevant, and omit those that do not apply to this project.\n\nDocument Requirements\n\n- Title the document \"Repository Guidelines\".\n- Use Markdown headings (#, ##, etc.) for structure.\n- Keep the document concise. 200-400 words is optimal.\n- Keep explanations short, direct, and specific to this repository.\n- Provide examples where helpful (commands, directory paths, naming patterns).\n- Maintain a professional, instructional tone.\n\nRecommended Sections\n\nProject Structure & Module Organization\n\n- Outline the project structure, including where the source code, tests, and assets are located.\n\nBuild, Test, and Development Commands\n\n- List key commands for building, testing, and running locally (e.g., npm test, make build).\n- Briefly explain what each command does.\n\nCoding Style & Naming Conventions\n\n- Specify indentation rules, language-specific style preferences, and naming patterns.\n- Include any formatting or linting tools used.\n\nTesting Guidelines\n\n- Identify testing frameworks and coverage requirements.\n- State test naming conventions and how to run tests.\n\nCommit & Pull Request Guidelines\n\n- Summarize commit message conventions found in the project’s Git history.\n- Outline pull request requirements (descriptions, linked issues, screenshots, etc.).\n\n(Optional) Add other sections if relevant, such as Security & Configuration Tips, Architecture Overview, or Agent-Specific Instructions.",
+          "timestamp": "2026-02-18T03:39:19.047Z"
+        },
+        {
+          "type": "assistant",
+          "text": "I’m going to scan the repository to identify its actual structure, tooling, and workflow so the new `AGENTS.md` is accurate and specific, then I’ll draft and write it in the requested 200–400 word format.",
+          "timestamp": "2026-02-18T03:39:22.650Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "exec_command",
+          "input": {
+            "cmd": "rg --files",
+            "workdir": "/Users/cole/caentzminger/grokipedia-py"
+          },
+          "timestamp": "2026-02-18T03:39:22.661Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "exec_command",
+          "input": {
+            "cmd": "ls -la",
+            "workdir": "/Users/cole/caentzminger/grokipedia-py"
+          },
+          "timestamp": "2026-02-18T03:39:22.668Z"
+        },
+        {
+          "type": "assistant",
+          "text": "I found the core layout; next I’ll read `README.md`, `Justfile`, and `pyproject.toml`, then check recent commit messages so the commit/PR guidance matches this repo’s conventions.",
+          "timestamp": "2026-02-18T03:39:26.794Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "exec_command",
+          "input": {
+            "cmd": "cat README.md",
+            "workdir": "/Users/cole/caentzminger/grokipedia-py"
+          },
+          "timestamp": "2026-02-18T03:39:26.798Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "exec_command",
+          "input": {
+            "cmd": "cat Justfile",
+            "workdir": "/Users/cole/caentzminger/grokipedia-py"
+          },
+          "timestamp": "2026-02-18T03:39:26.814Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "exec_command",
+          "input": {
+            "cmd": "cat pyproject.toml",
+            "workdir": "/Users/cole/caentzminger/grokipedia-py"
+          },
+          "timestamp": "2026-02-18T03:39:26.817Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "exec_command",
+          "input": {
+            "cmd": "git log --oneline -n 12",
+            "workdir": "/Users/cole/caentzminger/grokipedia-py"
+          },
+          "timestamp": "2026-02-18T03:39:26.820Z"
+        },
+        {
+          "type": "assistant",
+          "text": "I have enough context to draft this now: the repo uses a `src/` layout, `pytest`, `ruff`, `ty`, `uv`, and a `Justfile`, with mostly conventional commit prefixes (`feat:`, `fix:`, `refactor:`). I’ll add a concise `AGENTS.md` with practical commands and contribution rules tailored to those tools.",
+          "timestamp": "2026-02-18T03:39:30.109Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "exec_command",
+          "input": {
+            "cmd": "cat > AGENTS.md <<'EOF'\n# Repository Guidelines\n\n## Project Structure & Module Organization\n- Core package code lives in `src/grokipedia/`.\n- Main modules are split by concern: `client.py` (public entry points), `fetch.py`/`robots.py` (network and robots handling), `parser.py` (HTML parsing), `models.py` (typed data models), and `errors.py` (exception hierarchy).\n- Tests are in `tests/`, with reusable HTML fixtures in `tests/fixtures/`.\n- Project metadata and tooling config live in `pyproject.toml`; task shortcuts live in `Justfile`.\n\n## Build, Test, and Development Commands\n- `just setup`: install and lock all dev dependencies via `uv`.\n- `just test`: run the full test suite with `pytest`.\n- `just lint-py`: run `ruff check` across `src/` and `tests/`.\n- `just lint-fix-py`: auto-fix lint issues when possible.\n- `just fmt-py`: format Python code with `ruff format`.\n- `just typecheck`: run static checks with `ty`.\n- `just fmt-all`: run Python and Markdown formatting.\n\n## Coding Style & Naming Conventions\n- Target Python `>=3.10`; keep code compatible with stdlib-first design.\n- Use 4-space indentation and type annotations for public APIs.\n- Follow existing naming patterns: `snake_case` for functions/modules, `PascalCase` for data models/classes, `UPPER_SNAKE_CASE` for constants.\n- Keep parsing logic deterministic and side-effect light; prefer small pure helpers.\n- Run `just fmt-py just lint-py just typecheck` before opening a PR.\n\n## Testing Guidelines\n- Framework: `pytest`.\n- Place tests in `tests/` with names like `test_<feature>.py` and functions `test_<behavior>()`.\n- Prefer fixture-driven parser tests using `tests/fixtures/*.html` for stable coverage.\n- Add or update tests for every bug fix and any new parsed field/behavior.\n\n## Commit & Pull Request Guidelines\n- Commit style in history is mostly Conventional Commits (`feat:`, `fix:`, `refactor:`); continue using that format.\n- Keep commits focused and descriptive (one logical change per commit).\n- PRs should include:\n  - a short summary of behavior changes,\n  - linked issue/context when applicable,\n  - test evidence (e.g., `just test` output),\n  - notes on parser edge cases or robots-related impacts.\nEOF",
+            "workdir": "/Users/cole/caentzminger/grokipedia-py"
+          },
+          "timestamp": "2026-02-18T03:39:38.427Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "exec_command",
+          "input": {
+            "cmd": "wc -w AGENTS.md && sed -n '1,220p' AGENTS.md",
+            "workdir": "/Users/cole/caentzminger/grokipedia-py"
+          },
+          "timestamp": "2026-02-18T03:39:40.244Z"
+        },
+        {
+          "type": "assistant",
+          "text": "Created `AGENTS.md` with a 310-word contributor guide tailored to this repository.\n\nIt includes:\n- Project layout for `src/grokipedia/`, `tests/`, fixtures, and config files.\n- Practical `just`/`uv` commands for setup, linting, formatting, typing, and tests.\n- Python style and naming conventions aligned with the current codebase.\n- `pytest` testing expectations and fixture usage guidance.\n- Commit/PR guidance based on current git history conventions.\n\nFile: `AGENTS.md`",
+          "timestamp": "2026-02-18T03:39:44.043Z"
+        }
+      ],
+      "total_additions": 38,
+      "total_deletions": 0,
+      "accepted_lines": 38,
+      "overriden_lines": 0
+    }
+  }
+}
