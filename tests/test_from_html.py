@@ -146,6 +146,39 @@ def test_from_html_parses_inline_subsection_media_indexed() -> None:
     assert subsection.media[1].image_url.endswith("details-2.jpg")
 
 
+def test_from_html_parses_embedded_markdown_subsection_media() -> None:
+    html = """
+    <html>
+      <body>
+        <article class='text-[16px]'>
+          <h1 id='sample'>Sample Page</h1>
+          <span data-tts-block='true'>Sample intro.</span>
+          <h2 id='overview'>Overview</h2>
+          <h3 id='details'>Details</h3>
+          <span data-tts-block='true'>Details text.</span>
+        </article>
+        <script>
+          self.__next_f.push([1,"\n## Overview\n\n### Details\n\n![Embedded detail](https://assets.grokipedia.com/wiki/images/details-embedded.jpg)\n*Embedded detail caption*\n\n![Paren detail](https://assets.grokipedia.com/wiki/images/details-(2026).jpg)\n*Paren detail caption*\n"]);
+        </script>
+      </body>
+    </html>
+    """
+
+    page = from_html(html, source_url="https://grokipedia.com/page/sample")
+
+    subsection = page.sections[0].subsections[0]
+    assert subsection.title == "Details"
+    assert len(subsection.media) == 2
+    assert subsection.media[0].index == 1
+    assert subsection.media[0].image_url.endswith("details-embedded.jpg")
+    assert subsection.media[0].alt_text == "Embedded detail"
+    assert subsection.media[0].caption == "Embedded detail caption"
+    assert subsection.media[1].index == 2
+    assert subsection.media[1].image_url.endswith("details-(2026).jpg")
+    assert subsection.media[1].alt_text == "Paren detail"
+    assert subsection.media[1].caption == "Paren detail caption"
+
+
 def test_page_to_json_wraps_to_dict() -> None:
     html = """
     <html>

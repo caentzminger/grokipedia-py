@@ -147,6 +147,7 @@ def parse_page_html(
     infobox = _extract_infobox(article)
     lead_figure = _extract_lead_figure(article, base_url=page_url)
     sections, references = _build_sections_and_references(blocks)
+    _attach_markdown_media_from_payload(html, sections, base_url=page_url)
 
     metadata = PageMetadata(
         status_code=status_code,
@@ -639,14 +640,7 @@ def _build_sections_and_references(
             continue
 
         if block.kind == "figure" and block.figure is not None:
-            target_section.media.append(
-                SectionMedia(
-                    index=len(target_section.media) + 1,
-                    image_url=block.figure.image_url,
-                    caption=block.figure.caption,
-                    alt_text=block.figure.alt_text,
-                )
-            )
+            _append_section_media(target_section, block.figure)
             continue
 
         target_section.text = _append_text(target_section.text, block.text)
@@ -658,6 +652,178 @@ def _build_sections_and_references(
             )
 
     return sections, references
+
+
+def _attach_markdown_media_from_payload(
+    html: str,
+    sections: list[Section],
+    *,
+    base_url: str,
+) -> None:
+    if not sections:
+        return
+
+    decoded = html.replace('\\"', '"').replace("\\n", "\n")
+    if "## " not in decoded or "![" not in decoded:
+        return
+
+    current_section: Section | None = None
+    current_subsection: Section | None = None
+    section_cursor = -1
+    subsection_cursor = -1
+
+    lines = decoded.splitlines()
+    for index, line in enumerate(lines):
+        stripped = line.strip()
+        if not stripped:
+            continue
+
+        if stripped.startswith("## "):
+            title = _normalize_ws(stripped[3:])
+            current_section, section_cursor = _match_section_by_title(
+                sections,
+                title,
+                start_index=section_cursor + 1,
+            )
+            current_subsection = None
+            subsection_cursor = -1
+            continue
+
+        if stripped.startswith("### "):
+            if current_section is None:
+                continue
+
+            title = _normalize_ws(stripped[4:])
+            current_subsection, subsection_cursor = _match_section_by_title(
+                current_section.subsections,
+                title,
+                start_index=subsection_cursor + 1,
+            )
+            continue
+
+        parsed_image = _parse_markdown_image(stripped)
+        if parsed_image is None:
+            continue
+
+        target_section = current_subsection or current_section
+        if target_section is None:
+            continue
+
+        alt_value, link_value = parsed_image
+        raw_url = _extract_markdown_image_url(link_value)
+        if not raw_url:
+            continue
+
+        image_url = _normalize_image_url(raw_url, base_url)
+        alt_text = _normalize_ws(alt_value) or None
+        caption = _extract_markdown_caption(lines, start_index=index + 1)
+
+        _append_section_media(
+            target_section,
+            _FigureData(
+                image_url=image_url,
+                caption=caption,
+                alt_text=alt_text,
+            ),
+        )
+
+
+def _match_section_by_title(
+    sections: list[Section],
+    title: str,
+    *,
+    start_index: int,
+) -> tuple[Section | None, int]:
+    normalized_title = _normalize_ws(title).lower()
+    if not normalized_title:
+        return None, start_index - 1
+
+    for index in range(max(start_index, 0), len(sections)):
+        if _normalize_ws(sections[index].title).lower() == normalized_title:
+            return sections[index], index
+
+    for index, section in enumerate(sections):
+        if _normalize_ws(section.title).lower() == normalized_title:
+            return section, index
+
+    return None, start_index - 1
+
+
+def _parse_markdown_image(line: str) -> tuple[str, str] | None:
+    start = line.find("![")
+    while start != -1:
+        alt_start = start + 2
+        alt_end = line.find("]", alt_start)
+        if alt_end == -1:
+            return None
+
+        if alt_end + 1 >= len(line) or line[alt_end + 1] != "(":
+            start = line.find("![", alt_end + 1)
+            continue
+
+        link_start = alt_end + 2
+        depth = 1
+        cursor = link_start
+        while cursor < len(line):
+            char = line[cursor]
+            prev = line[cursor - 1] if cursor > link_start else ""
+            if char == "(" and prev != "\\":
+                depth += 1
+            elif char == ")" and prev != "\\":
+                depth -= 1
+                if depth == 0:
+                    alt = line[alt_start:alt_end]
+                    link = line[link_start:cursor]
+                    return alt, link
+            cursor += 1
+
+        return None
+
+    return None
+
+
+def _extract_markdown_image_url(link_value: str) -> str | None:
+    value = _normalize_ws(link_value)
+    if not value:
+        return None
+
+    if value.startswith("<") and ">" in value:
+        return value[1 : value.index(">")]
+
+    first_token = value.split(" ", maxsplit=1)[0]
+    return first_token or None
+
+
+def _extract_markdown_caption(lines: list[str], *, start_index: int) -> str | None:
+    for line in lines[start_index : start_index + 4]:
+        stripped = line.strip()
+        if not stripped:
+            continue
+
+        if stripped.startswith("##") or stripped.startswith("!["):
+            return None
+
+        if stripped.startswith("*") and stripped.endswith("*") and len(stripped) > 2:
+            caption = _normalize_ws(stripped[1:-1])
+            return caption or None
+
+        return None
+
+    return None
+
+
+def _append_section_media(section: Section, figure: _FigureData) -> None:
+    if any(existing.image_url == figure.image_url for existing in section.media):
+        return
+
+    section.media.append(
+        SectionMedia(
+            index=len(section.media) + 1,
+            image_url=figure.image_url,
+            caption=figure.caption,
+            alt_text=figure.alt_text,
+        )
+    )
 
 
 def _extract_references_from_list(node: _Node, *, start_index: int) -> list[Reference]:
