@@ -16,7 +16,7 @@ fmt-py:
 # Format markdown using `mdformat`
 fmt-md:
     @echo "Formating markdown using mdformat..."
-    @{{ uv_run_dev }} mdformat README.md
+    @{{ uv_run_dev }} mdformat README.md AGENTS.md
 
 fmt-all: fmt-py fmt-md
 
