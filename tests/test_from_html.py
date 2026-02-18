@@ -25,5 +25,5 @@ def test_from_html_parses_without_network() -> None:
     assert page.url == "https://grokipedia.com/page/sample"
     assert page.slug == "sample"
     assert page.title == "Sample Page"
-    assert page.lede_markdown == "This is a sample lede."
+    assert page.lede_text == "This is a sample lede."
     assert page.sections[0].title == "Overview"

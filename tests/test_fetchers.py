@@ -1,14 +1,11 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-import importlib.util
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import threading
 from typing import Iterator
 
-import pytest
-
-from grokipedia import HttpxFetcher, UrllibFetcher
+from grokipedia import UrllibFetcher
 
 
 class _Handler(BaseHTTPRequestHandler):
@@ -67,21 +64,3 @@ def test_urllib_fetcher_reads_success_and_error_statuses() -> None:
     assert "<h1>ok</h1>" in ok.text
     assert missing.status_code == 404
     assert "missing" in missing.text
-
-
-def test_httpx_fetcher_optional_dependency_behavior() -> None:
-    if importlib.util.find_spec("httpx") is None:
-        with pytest.raises(ImportError):
-            HttpxFetcher()
-        return
-
-    fetcher = HttpxFetcher()
-    with local_server() as base_url:
-        response = fetcher.fetch_text(
-            f"{base_url}/ok",
-            timeout=2,
-            headers={"User-Agent": "grokipedia-py-test"},
-        )
-
-    assert response.status_code == 200
-    assert "<h1>ok</h1>" in response.text

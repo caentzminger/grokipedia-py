@@ -11,7 +11,6 @@ from .errors import (
     RobotsUnavailableError,
 )
 from .fetch import FetchResponse, Fetcher, UrllibFetcher
-from .httpx_transport import HttpxFetcher
 from .models import Page, PageMetadata, Reference, Section
 
 SITEMAP_INDEX = "https://assets.grokipedia.com/sitemap/sitemap-index.xml"
@@ -22,7 +21,6 @@ __all__ = [
     "Fetcher",
     "GrokipediaError",
     "HttpStatusError",
-    "HttpxFetcher",
     "Page",
     "PageMetadata",
     "PageNotFoundError",

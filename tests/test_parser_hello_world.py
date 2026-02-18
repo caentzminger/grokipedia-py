@@ -24,14 +24,11 @@ def test_parse_hello_world_fixture() -> None:
 
     subsection = overview.subsections[0]
     assert subsection.title == "In C"
-    assert "```c" in subsection.markdown
-    assert "Hello, World!" in subsection.markdown
+    assert "int main(void)" in subsection.text
+    assert "Hello, World!" in subsection.text
 
     assert len(page.references) == 1
-    assert (
-        page.references[0].text
-        == "[The C Programming Language](https://grokipedia.com/page/The_C_Programming_Language)"
-    )
+    assert page.references[0].text == "The C Programming Language"
     assert (
         page.references[0].url
         == "https://grokipedia.com/page/The_C_Programming_Language"

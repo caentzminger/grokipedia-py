@@ -25,7 +25,7 @@ class Section:
     id: str | None
     title: str
     level: int
-    markdown: str
+    text: str
     subsections: list[Section] = field(default_factory=list)
 
 
@@ -34,7 +34,7 @@ class Page:
     url: str
     slug: str
     title: str
-    lede_markdown: str | None
+    lede_text: str | None
     sections: list[Section]
     references: list[Reference]
     metadata: PageMetadata

@@ -8,12 +8,6 @@ Near-zero dependency Python client for extracting structured content from Grokip
 pip install grokipedia-py
 ```
 
-Optional HTTP transport:
-
-```bash
-pip install "grokipedia-py[httpx]"
-```
-
 ## Quickstart
 
 ```python
@@ -23,7 +17,7 @@ page = from_url("https://grokipedia.com/page/13065923")
 
 print(page.title)
 print(page.slug)
-print(page.lede_markdown)
+print(page.lede_text)
 print([section.title for section in page.sections])
 print(len(page.references))
 ```
@@ -57,7 +51,7 @@ You can bypass robots enforcement by setting either:
 - `url`
 - `slug`
 - `title`
-- `lede_markdown`
+- `lede_text`
 - `sections` (`Section` tree with nested `subsections`)
 - `references` (`Reference` list)
 - `metadata` (`PageMetadata`)

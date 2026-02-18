@@ -92,7 +92,7 @@ class _DOMBuilder(HTMLParser):
 @dataclass(slots=True)
 class _Block:
     kind: str
-    markdown: str
+    text: str
     node: _Node | None
     heading_level: int | None = None
     heading_id: str | None = None
@@ -124,7 +124,7 @@ def parse_page_html(
     if not title:
         raise ParseError("Could not extract page title")
 
-    lede_markdown = _extract_lede(blocks)
+    lede_text = _extract_lede(blocks)
     sections, references = _build_sections_and_references(blocks)
 
     canonical_url = _extract_canonical_url(root)
@@ -142,7 +142,7 @@ def parse_page_html(
         url=page_url,
         slug=_extract_slug(page_url),
         title=title,
-        lede_markdown=lede_markdown,
+        lede_text=lede_text,
         sections=sections,
         references=references,
         metadata=metadata,
@@ -287,7 +287,7 @@ def _extract_blocks(article: _Node) -> list[_Block]:
                 blocks.append(
                     _Block(
                         kind="heading",
-                        markdown="",
+                        text="",
                         node=node,
                         heading_level=int(node.tag[-1]),
                         heading_id=node.attrs.get("id") or None,
@@ -297,29 +297,27 @@ def _extract_blocks(article: _Node) -> list[_Block]:
             return
 
         if node.tag == "p":
-            markdown = _normalize_ws(_render_inline(node))
-            if markdown:
-                blocks.append(_Block(kind="paragraph", markdown=markdown, node=node))
+            text = _normalize_ws(_render_inline(node))
+            if text:
+                blocks.append(_Block(kind="paragraph", text=text, node=node))
             return
 
         if node.tag in {"ul", "ol"}:
-            markdown = _render_list(node)
-            if markdown:
-                blocks.append(_Block(kind="list", markdown=markdown, node=node))
+            text = _render_list(node)
+            if text:
+                blocks.append(_Block(kind="list", text=text, node=node))
             return
 
         if node.tag == "pre":
-            markdown = _render_pre(node)
-            if markdown:
-                blocks.append(_Block(kind="code", markdown=markdown, node=node))
+            text = _render_pre(node)
+            if text:
+                blocks.append(_Block(kind="code", text=text, node=node))
             return
 
         if node.tag == "blockquote":
             quote = _normalize_ws(_render_inline(node))
             if quote:
-                blocks.append(
-                    _Block(kind="blockquote", markdown=f"> {quote}", node=node)
-                )
+                blocks.append(_Block(kind="blockquote", text=quote, node=node))
             return
 
         for child in node.children:
@@ -348,23 +346,12 @@ def _render_inline(node: _Node | str, *, in_code: bool = False) -> str:
         text = _normalize_ws(children)
         href = node.attrs.get("href", "").strip()
         if href and text:
-            return f"[{text}]({href})"
+            return text
         return text or href
-
-    if tag in {"strong", "b"}:
-        text = _normalize_ws(children)
-        return f"**{text}**" if text else ""
-
-    if tag in {"em", "i"}:
-        text = _normalize_ws(children)
-        return f"*{text}*" if text else ""
 
     if tag == "code" and not in_code:
         text = _normalize_ws(children)
-        if not text:
-            return ""
-        escaped = text.replace("`", "\\`")
-        return f"`{escaped}`"
+        return text
 
     return children
 
@@ -391,7 +378,6 @@ def _render_list(node: _Node) -> str:
 
 
 def _render_pre(node: _Node) -> str:
-    language = ""
     code_node: _Node | None = None
     for child in node.children:
         if isinstance(child, _Node) and child.tag == "code":
@@ -399,11 +385,6 @@ def _render_pre(node: _Node) -> str:
             break
 
     if code_node is not None:
-        classes = code_node.attrs.get("class", "")
-        for value in classes.split():
-            if value.startswith("language-"):
-                language = value.replace("language-", "", 1)
-                break
         code = _text_content(code_node, preserve_whitespace=True)
     else:
         code = _text_content(node, preserve_whitespace=True)
@@ -412,9 +393,7 @@ def _render_pre(node: _Node) -> str:
     if not code:
         return ""
 
-    if language:
-        return f"```{language}\n{code}\n```"
-    return f"```\n{code}\n```"
+    return code
 
 
 def _extract_title(blocks: list[_Block]) -> str | None:
@@ -437,12 +416,12 @@ def _extract_lede(blocks: list[_Block]) -> str | None:
     end = first_h2_index if first_h2_index is not None else len(blocks)
     for block in blocks[:end]:
         if block.kind == "paragraph":
-            return block.markdown
+            return block.text
 
     return None
 
 
-def _append_markdown(current: str, addition: str) -> str:
+def _append_text(current: str, addition: str) -> str:
     if not addition:
         return current
     if not current:
@@ -471,7 +450,7 @@ def _build_sections_and_references(
                     id=block.heading_id,
                     title=heading_title,
                     level=2,
-                    markdown="",
+                    text="",
                     subsections=[],
                 )
                 sections.append(current_section)
@@ -485,7 +464,7 @@ def _build_sections_and_references(
                         id=None,
                         title="Overview",
                         level=2,
-                        markdown="",
+                        text="",
                         subsections=[],
                     )
                     sections.append(current_section)
@@ -494,7 +473,7 @@ def _build_sections_and_references(
                     id=block.heading_id,
                     title=heading_title,
                     level=3,
-                    markdown="",
+                    text="",
                     subsections=[],
                 )
                 current_section.subsections.append(current_subsection)
@@ -505,9 +484,7 @@ def _build_sections_and_references(
         if target_section is None:
             continue
 
-        target_section.markdown = _append_markdown(
-            target_section.markdown, block.markdown
-        )
+        target_section.text = _append_text(target_section.text, block.text)
 
         if in_references and block.kind == "list" and block.node is not None:
             start_index = len(references) + 1
