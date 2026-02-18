@@ -97,32 +97,7 @@ class Page:
             )
 
         for section in self.sections:
-            blocks.append(f"## {section.title}")
-            if section.text:
-                blocks.append(section.text)
-
-            for media in section.media:
-                blocks.append(
-                    _render_markdown_media(
-                        image_url=media.image_url,
-                        alt_text=media.alt_text,
-                        caption=media.caption,
-                    )
-                )
-
-            for subsection in section.subsections:
-                blocks.append(f"### {subsection.title}")
-                if subsection.text:
-                    blocks.append(subsection.text)
-
-                for media in subsection.media:
-                    blocks.append(
-                        _render_markdown_media(
-                            image_url=media.image_url,
-                            alt_text=media.alt_text,
-                            caption=media.caption,
-                        )
-                    )
+            _append_section_markdown(blocks, section)
 
         return "\n\n".join(block for block in blocks if block.strip())
 
@@ -173,6 +148,32 @@ def _render_markdown_media(
     if caption:
         return f"{image_line}\n*{caption}*"
     return image_line
+
+
+def _append_section_markdown(blocks: list[str], section: Section) -> None:
+    heading_prefix = "#" * max(1, section.level)
+    blocks.append(f"{heading_prefix} {section.title}")
+
+    if section.text:
+        blocks.append(section.text)
+
+    _append_section_media_markdown(blocks, section.media)
+    for subsection in section.subsections:
+        _append_section_markdown(blocks, subsection)
+
+
+def _append_section_media_markdown(
+    blocks: list[str],
+    media_items: list[SectionMedia],
+) -> None:
+    for media in media_items:
+        blocks.append(
+            _render_markdown_media(
+                image_url=media.image_url,
+                alt_text=media.alt_text,
+                caption=media.caption,
+            )
+        )
 
 
 def _to_dict_compatible(value: Any) -> Any:

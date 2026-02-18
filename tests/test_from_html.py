@@ -283,6 +283,52 @@ def test_page_markdown_renders_structured_content() -> None:
     )
 
 
+def test_page_markdown_regression_exact_output() -> None:
+    html = """
+    <html>
+      <body>
+        <article class='text-[16px]'>
+          <h1 id='sample'>Sample Page</h1>
+          <p>Sample intro text.</p>
+          <div>
+            <dt>Founded</dt>
+            <dd>2020</dd>
+          </div>
+          <figure>
+            <img src='https://assets.grokipedia.com/wiki/images/lead.jpg' alt='Lead image' />
+            <figcaption>Lead caption</figcaption>
+          </figure>
+          <h2 id='overview'>Overview</h2>
+          <p>Overview body text.</p>
+          <h3 id='details'>Details</h3>
+          <p>Details body text.</p>
+          <figure>
+            <img src='https://assets.grokipedia.com/wiki/images/detail.jpg' alt='Detail image' />
+            <figcaption>Detail caption</figcaption>
+          </figure>
+        </article>
+      </body>
+    </html>
+    """
+
+    page = from_html(html, source_url="https://grokipedia.com/page/sample")
+
+    assert (
+        page.markdown == "# Sample Page\n\n"
+        "Sample intro text.\n\n"
+        "## Infobox\n"
+        "- **Founded:** 2020\n\n"
+        "![Lead image](https://assets.grokipedia.com/wiki/images/lead.jpg)\n"
+        "*Lead caption*\n\n"
+        "## Overview\n\n"
+        "Overview body text.\n\n"
+        "### Details\n\n"
+        "Details body text.\n\n"
+        "![Detail image](https://assets.grokipedia.com/wiki/images/detail.jpg)\n"
+        "*Detail caption*"
+    )
+
+
 def test_page_to_json_wraps_to_dict() -> None:
     html = """
     <html>
