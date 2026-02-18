@@ -1,28 +1,14 @@
 from __future__ import annotations
 
 import logging
-from typing import Protocol
-from urllib.parse import unquote, urlparse
 from xml.etree import ElementTree
 
+from ._types import FetchTextFn
+from ._urls import canonicalize_url
 from .errors import ParseError
-from .fetch import FetchResponse, Fetcher
+from .fetch import Fetcher
 
 logger = logging.getLogger(__name__)
-
-
-class FetchTextFn(Protocol):
-    def __call__(
-        self,
-        url: str,
-        *,
-        timeout: float,
-        respect_robots: bool,
-        allow_robots_override: bool,
-        user_agent: str,
-        fetcher: Fetcher,
-        not_found_is_page: bool,
-    ) -> FetchResponse: ...
 
 
 def _parse_sitemap_locs(xml_text: str) -> list[str]:
@@ -43,14 +29,6 @@ def _parse_sitemap_locs(xml_text: str) -> list[str]:
     return urls
 
 
-def _canonicalize_url(url: str) -> str:
-    parsed = urlparse(url)
-    scheme = parsed.scheme.lower()
-    netloc = parsed.netloc.lower()
-    path = unquote(parsed.path)
-    return f"{scheme}://{netloc}{path}"
-
-
 class SitemapManifest:
     def __init__(
         self,
@@ -66,8 +44,68 @@ class SitemapManifest:
         self._sitemap_index_urls_cache: list[str] | None = None
         self._manifest_by_sitemap: dict[str, list[str]] = {}
         self._loaded_sitemaps: set[str] = set()
+        self._canonical_page_url: dict[str, str] = {}
+        self._canonical_keys_by_sitemap: dict[str, set[str]] = {}
+        self._canonical_owners: dict[str, set[str]] = {}
 
-    def _get_sitemap_index_urls(
+    def _remove_sitemap_indexes(self, sitemap_url: str) -> None:
+        keys = self._canonical_keys_by_sitemap.pop(sitemap_url, set())
+        for key in keys:
+            owners = self._canonical_owners.get(key)
+            if owners is None:
+                continue
+
+            owners.discard(sitemap_url)
+            if owners:
+                continue
+
+            self._canonical_owners.pop(key, None)
+            self._canonical_page_url.pop(key, None)
+
+    def _index_sitemap_urls(self, sitemap_url: str, page_urls: list[str]) -> None:
+        self._remove_sitemap_indexes(sitemap_url)
+
+        canonical_keys: set[str] = set()
+        for page_url in page_urls:
+            key = canonicalize_url(page_url)
+            canonical_keys.add(key)
+            self._canonical_page_url[key] = page_url
+            self._canonical_owners.setdefault(key, set()).add(sitemap_url)
+
+        self._canonical_keys_by_sitemap[sitemap_url] = canonical_keys
+
+    def _fetch_sitemap_urls(
+        self,
+        url: str,
+        *,
+        timeout: float,
+        respect_robots: bool,
+        allow_robots_override: bool,
+        user_agent: str,
+    ) -> list[str]:
+        response = self._fetch_text(
+            url,
+            timeout=timeout,
+            respect_robots=respect_robots,
+            allow_robots_override=allow_robots_override,
+            user_agent=user_agent,
+            fetcher=self._fetcher,
+            not_found_is_page=False,
+        )
+        return _parse_sitemap_locs(response.text)
+
+    def _sync_manifest_with_index(self, sitemap_urls: list[str]) -> None:
+        previous_sitemaps = set(self._manifest_by_sitemap.keys())
+        previous_manifest = self._manifest_by_sitemap
+        self._manifest_by_sitemap = {
+            sitemap_url: list(previous_manifest.get(sitemap_url, []))
+            for sitemap_url in sitemap_urls
+        }
+        self._loaded_sitemaps.intersection_update(self._manifest_by_sitemap.keys())
+        for sitemap_url in previous_sitemaps - set(sitemap_urls):
+            self._remove_sitemap_indexes(sitemap_url)
+
+    def _ensure_sitemap_index_urls(
         self,
         *,
         timeout: float,
@@ -78,23 +116,14 @@ class SitemapManifest:
         if self._sitemap_index_urls_cache is not None:
             return self._sitemap_index_urls_cache
 
-        response = self._fetch_text(
+        sitemap_urls = self._fetch_sitemap_urls(
             self.sitemap_index_url,
             timeout=timeout,
             respect_robots=respect_robots,
             allow_robots_override=allow_robots_override,
             user_agent=user_agent,
-            fetcher=self._fetcher,
-            not_found_is_page=False,
         )
-        sitemap_urls = _parse_sitemap_locs(response.text)
-
-        previous_manifest = self._manifest_by_sitemap
-        self._manifest_by_sitemap = {
-            sitemap_url: list(previous_manifest.get(sitemap_url, []))
-            for sitemap_url in sitemap_urls
-        }
-        self._loaded_sitemaps.intersection_update(self._manifest_by_sitemap.keys())
+        self._sync_manifest_with_index(sitemap_urls)
         self._sitemap_index_urls_cache = sitemap_urls
         logger.debug("Loaded sitemap index count=%s", len(sitemap_urls))
         return sitemap_urls
@@ -109,20 +138,18 @@ class SitemapManifest:
         user_agent: str,
     ) -> list[str]:
         if sitemap_url in self._loaded_sitemaps:
-            return self._manifest_by_sitemap.get(sitemap_url, [])
+            return self._manifest_by_sitemap.setdefault(sitemap_url, [])
 
-        response = self._fetch_text(
+        page_urls = self._fetch_sitemap_urls(
             sitemap_url,
             timeout=timeout,
             respect_robots=respect_robots,
             allow_robots_override=allow_robots_override,
             user_agent=user_agent,
-            fetcher=self._fetcher,
-            not_found_is_page=False,
         )
-        page_urls = _parse_sitemap_locs(response.text)
         self._manifest_by_sitemap[sitemap_url] = page_urls
         self._loaded_sitemaps.add(sitemap_url)
+        self._index_sitemap_urls(sitemap_url, page_urls)
         logger.debug(
             "Loaded child sitemap sitemap_url=%s page_count=%s",
             sitemap_url,
@@ -136,6 +163,14 @@ class SitemapManifest:
             for sitemap_url, page_urls in self._manifest_by_sitemap.items()
         }
 
+    def _reset_cache(self) -> None:
+        self._sitemap_index_urls_cache = None
+        self._manifest_by_sitemap.clear()
+        self._loaded_sitemaps.clear()
+        self._canonical_page_url.clear()
+        self._canonical_keys_by_sitemap.clear()
+        self._canonical_owners.clear()
+
     def refresh(
         self,
         *,
@@ -144,11 +179,9 @@ class SitemapManifest:
         allow_robots_override: bool,
         user_agent: str,
     ) -> dict[str, list[str]]:
-        self._sitemap_index_urls_cache = None
-        self._manifest_by_sitemap = {}
-        self._loaded_sitemaps.clear()
+        self._reset_cache()
 
-        self._get_sitemap_index_urls(
+        self._ensure_sitemap_index_urls(
             timeout=timeout,
             respect_robots=respect_robots,
             allow_robots_override=allow_robots_override,
@@ -165,24 +198,26 @@ class SitemapManifest:
         allow_robots_override: bool,
         user_agent: str,
     ) -> str | None:
-        candidate_key = _canonicalize_url(candidate_url)
+        candidate_key = canonicalize_url(candidate_url)
+        cached_match = self._canonical_page_url.get(candidate_key)
+        if cached_match is not None:
+            return cached_match
 
-        for sitemap_url in self._get_sitemap_index_urls(
+        for sitemap_url in self._ensure_sitemap_index_urls(
             timeout=timeout,
             respect_robots=respect_robots,
             allow_robots_override=allow_robots_override,
             user_agent=user_agent,
         ):
-            page_urls = self._get_or_load_child_sitemap_urls(
+            self._get_or_load_child_sitemap_urls(
                 sitemap_url,
                 timeout=timeout,
                 respect_robots=respect_robots,
                 allow_robots_override=allow_robots_override,
                 user_agent=user_agent,
             )
-
-            for page_url in page_urls:
-                if _canonicalize_url(page_url) == candidate_key:
-                    return page_url
+            cached_match = self._canonical_page_url.get(candidate_key)
+            if cached_match is not None:
+                return cached_match
 
         return None

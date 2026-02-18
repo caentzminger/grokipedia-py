@@ -5,6 +5,7 @@ import logging
 from typing import Mapping
 
 from grokipedia import Grokipedia
+from grokipedia.errors import HttpStatusError
 from grokipedia.fetch import FetchResponse
 
 
@@ -98,6 +99,49 @@ def test_find_page_url_matches_manifest_even_with_escaped_quotes() -> None:
     found = wiki.find_page_url('"Hello, World!" program')
 
     assert found == 'https://grokipedia.com/page/"Hello,_World!"_program'
+
+
+def test_find_page_url_reuses_loaded_sitemaps_across_different_titles() -> None:
+    fetcher = StaticFetcher(
+        {
+            SITEMAP_INDEX_URL: (200, _sitemap_index_xml()),
+            SITEMAP_1_URL: (200, _sitemap_1_xml()),
+            SITEMAP_2_URL: (200, _sitemap_2_xml()),
+        }
+    )
+    wiki = Grokipedia(fetcher=fetcher, respect_robots=False)
+
+    assert wiki.find_page_url("Alpha") == "https://grokipedia.com/page/Alpha"
+    assert wiki.find_page_url("Beta") == "https://grokipedia.com/page/Beta"
+    assert wiki.find_page_url("Alpha") == "https://grokipedia.com/page/Alpha"
+
+    counts = Counter(fetcher.request_urls)
+    assert counts[SITEMAP_INDEX_URL] == 1
+    assert counts[SITEMAP_1_URL] == 1
+    assert counts[SITEMAP_2_URL] == 1
+
+
+def test_find_page_url_propagates_index_fetch_failure_without_child_fetches() -> None:
+    fetcher = StaticFetcher(
+        {
+            SITEMAP_INDEX_URL: (500, "server error"),
+            SITEMAP_1_URL: (200, _sitemap_1_xml()),
+            SITEMAP_2_URL: (200, _sitemap_2_xml()),
+        }
+    )
+    wiki = Grokipedia(fetcher=fetcher, respect_robots=False)
+
+    try:
+        wiki.find_page_url("Alpha")
+    except HttpStatusError as exc:
+        assert exc.status_code == 500
+    else:
+        raise AssertionError("Expected HttpStatusError for sitemap index failure")
+
+    counts = Counter(fetcher.request_urls)
+    assert counts[SITEMAP_INDEX_URL] == 1
+    assert counts[SITEMAP_1_URL] == 0
+    assert counts[SITEMAP_2_URL] == 0
 
 
 def test_refresh_manifest_reloads_index_and_resets_loaded_children() -> None:
