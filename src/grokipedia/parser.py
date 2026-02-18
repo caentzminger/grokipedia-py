@@ -302,6 +302,12 @@ def _extract_blocks(article: _Node) -> list[_Block]:
                 blocks.append(_Block(kind="paragraph", text=text, node=node))
             return
 
+        if node.tag == "span" and node.attrs.get("data-tts-block") == "true":
+            text = _normalize_ws(_render_inline(node))
+            if text:
+                blocks.append(_Block(kind="paragraph", text=text, node=node))
+            return
+
         if node.tag in {"ul", "ol"}:
             text = _render_list(node)
             if text:
