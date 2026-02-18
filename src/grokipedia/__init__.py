@@ -2,7 +2,14 @@ from __future__ import annotations
 
 import logging
 
-from .client import from_html, from_url
+from .client import (
+    DEFAULT_SITEMAP_INDEX_URL,
+    Grokipedia,
+    from_html,
+    from_url,
+    page,
+    search,
+)
 from .errors import (
     FetchError,
     GrokipediaError,
@@ -23,7 +30,7 @@ from .models import (
     SectionMedia,
 )
 
-SITEMAP_INDEX = "https://assets.grokipedia.com/sitemap/sitemap-index.xml"
+SITEMAP_INDEX = DEFAULT_SITEMAP_INDEX_URL
 
 logging.getLogger(__name__).addHandler(logging.NullHandler())
 
@@ -31,6 +38,7 @@ __all__ = [
     "FetchError",
     "FetchResponse",
     "Fetcher",
+    "Grokipedia",
     "GrokipediaError",
     "HttpStatusError",
     "InfoboxField",
@@ -48,4 +56,6 @@ __all__ = [
     "UrllibFetcher",
     "from_html",
     "from_url",
+    "page",
+    "search",
 ]

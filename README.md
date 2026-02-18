@@ -37,6 +37,45 @@ from grokipedia import from_html
 page = from_html(html, source_url="https://grokipedia.com/page/13065923")
 ```
 
+Resolve a page from a title:
+
+```python
+from grokipedia import page
+
+page_obj = page('"Hello, World!" program')
+```
+
+Search for page URLs:
+
+```python
+from grokipedia import search
+
+results = search("hello world")
+print(results[:5])
+```
+
+If this returns `[]`, try:
+
+```python
+results = search("hello world", respect_robots=False)
+```
+
+Today, `https://grokipedia.com/robots.txt` disallows `/api/`, and `/search` is mostly client-rendered HTML.
+
+Use class-based API with sitemap manifest caching:
+
+```python
+from grokipedia import Grokipedia
+
+wiki = Grokipedia(verbose=True)
+result = wiki.page("The C Programming Language")
+matches = wiki.search("programming language")
+
+# Lazy sitemap lookup + cached child sitemap manifests.
+url = wiki.find_page_url('"Hello, World!" program')
+manifest = wiki.refresh_manifest()
+```
+
 ## Logging
 
 The library uses Python's standard `logging` module (logger namespace: `grokipedia`).
@@ -53,6 +92,7 @@ logging.getLogger("grokipedia").setLevel(logging.DEBUG)
 `from_url()` enforces `robots.txt` by default.
 
 - `respect_robots=True` (default): validate `robots.txt` before page fetch.
+- `search()` first tries `/api/full-text-search` and falls back to `/search` HTML parsing.
 - `allow_robots_override=False` (default): strict mode.
 - if `robots.txt` is unavailable or malformed, the library fails closed with `RobotsUnavailableError`.
 - if URL is disallowed, it raises `RobotsDisallowedError`.
