@@ -1,0 +1,18 @@
+repos:
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    rev: 0.10.3
+    hooks:
+      - id: uv-lock
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.1
+    hooks:
+      - id: ruff-format
+      - id: ruff-check
+        args: ["--fix"]
+  - repo: https://github.com/hukkin/mdformat
+    rev: 1.0.0
+    hooks:
+      - id: mdformat
+        additional_dependencies:
+          - mdformat-gfm
+          - mdformat-ruff
