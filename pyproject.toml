@@ -1,6 +1,6 @@
 [project]
 name = "grokipedia-py"
-version = "0.1.0"
+version = "0.1.1"
 description = "Structured Grokipedia page parser with robots-aware fetching."
 readme = "README.md"
 license = { file = "LICENSE" }
