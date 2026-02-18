@@ -106,7 +106,7 @@ def test_from_html_parses_infobox_and_lead_media() -> None:
     assert page.lead_media.alt_text == "Jeffrey Epstein"
 
 
-def test_page_to_json_serializes_nested_content() -> None:
+def test_page_to_json_wraps_to_dict() -> None:
     html = """
     <html>
       <body>
@@ -121,8 +121,11 @@ def test_page_to_json_serializes_nested_content() -> None:
     """
 
     page = from_html(html, source_url="https://grokipedia.com/page/sample")
-    payload = json.loads(page.to_json())
 
-    assert payload["title"] == "Sample Page"
-    assert payload["sections"][0]["title"] == "Overview"
-    assert payload["metadata"]["fetched_at_utc"].endswith("Z")
+    payload_from_json = json.loads(page.to_json())
+    payload_from_dict = page.to_dict()
+
+    assert payload_from_json == payload_from_dict
+    assert payload_from_dict["title"] == "Sample Page"
+    assert payload_from_dict["sections"][0]["title"] == "Overview"
+    assert payload_from_dict["metadata"]["fetched_at_utc"].endswith("Z")

@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 import json
+from typing import Any
 
 
 @dataclass(slots=True)
@@ -55,18 +56,24 @@ class Page:
     references: list[Reference]
     metadata: PageMetadata
 
+    def to_dict(self) -> dict[str, Any]:
+        return _to_dict_compatible(asdict(self))
+
     def to_json(self, *, indent: int | None = None) -> str:
         return json.dumps(
-            asdict(self),
+            self.to_dict(),
             ensure_ascii=False,
             indent=indent,
-            default=_json_default,
         )
 
 
-def _json_default(value: object) -> str:
+def _to_dict_compatible(value: Any) -> Any:
     if isinstance(value, datetime):
         if value.tzinfo is None:
             return value.isoformat()
         return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
-    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
+    if isinstance(value, dict):
+        return {key: _to_dict_compatible(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_to_dict_compatible(item) for item in value]
+    return value

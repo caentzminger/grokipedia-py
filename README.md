@@ -61,7 +61,7 @@ You can bypass robots enforcement by setting either:
 - `references` (`Reference` list)
 - `metadata` (`PageMetadata`)
 
-`Page` also includes `to_json()` for simple JSON serialization.
+`Page` also includes `to_dict()` and `to_json()` for simple serialization.
 
 ## Exceptions
 
