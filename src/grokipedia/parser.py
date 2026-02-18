@@ -527,8 +527,6 @@ def _render_inline(node: _Node | str, *, in_code: bool = False) -> str:
     if tag == "a":
         text = _normalize_ws(children)
         href = node.attrs.get("href", "").strip()
-        if href and text:
-            return text
         return text or href
 
     if tag == "code" and not in_code:
@@ -868,7 +866,7 @@ def _extract_markdown_caption(lines: list[str], *, start_index: int) -> str | No
         if not stripped:
             continue
 
-        if stripped.startswith("##") or stripped.startswith("!["):
+        if stripped.startswith(("##", "![")):
             return None
 
         if stripped.startswith("*") and stripped.endswith("*") and len(stripped) > 2:

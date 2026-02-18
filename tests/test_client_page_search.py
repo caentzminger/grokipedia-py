@@ -10,6 +10,20 @@ from grokipedia.client import DEFAULT_USER_AGENT
 from grokipedia.fetch import FetchResponse
 
 
+def _robots_response(url: str, *, disallow_api: bool) -> FetchResponse:
+    robots_text = (
+        "User-agent: *\nDisallow: /api/\n"
+        if disallow_api
+        else "User-agent: *\nAllow: /\n"
+    )
+    return FetchResponse(
+        url=url,
+        status_code=200,
+        headers={"content-type": "text/plain"},
+        text=robots_text,
+    )
+
+
 class RecordingFetcher:
     def __init__(
         self,
@@ -31,12 +45,7 @@ class RecordingFetcher:
         self.request_headers.append(dict(headers))
 
         if url.endswith("/robots.txt"):
-            return FetchResponse(
-                url=url,
-                status_code=200,
-                headers={"content-type": "text/plain"},
-                text="User-agent: *\nAllow: /\n",
-            )
+            return _robots_response(url, disallow_api=False)
 
         if "/api/full-text-search?" in url:
             return FetchResponse(
@@ -88,12 +97,7 @@ class RobotsDisallowApiFetcher:
         self.request_headers.append(dict(headers))
 
         if url.endswith("/robots.txt"):
-            return FetchResponse(
-                url=url,
-                status_code=200,
-                headers={"content-type": "text/plain"},
-                text="User-agent: *\nDisallow: /api/\n",
-            )
+            return _robots_response(url, disallow_api=True)
 
         if "/search?" in url:
             return FetchResponse(
@@ -123,12 +127,7 @@ class RichPageFetcher:
         self.request_headers.append(dict(headers))
 
         if url.endswith("/robots.txt"):
-            return FetchResponse(
-                url=url,
-                status_code=200,
-                headers={"content-type": "text/plain"},
-                text="User-agent: *\nAllow: /\n",
-            )
+            return _robots_response(url, disallow_api=False)
 
         if "/page/" in url:
             return FetchResponse(

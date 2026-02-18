@@ -320,11 +320,7 @@ def _sections_from_data(value: Any) -> list[Section]:
         return []
     if not isinstance(value, list):
         raise ValueError("sections must be an array")
-
-    sections: list[Section] = []
-    for item in value:
-        sections.append(_section_from_data(item))
-    return sections
+    return [_section_from_data(item) for item in value]
 
 
 def _references_from_data(value: Any) -> list[Reference]:
