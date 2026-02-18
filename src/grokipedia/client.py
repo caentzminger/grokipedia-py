@@ -1,14 +1,15 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import logging
-from urllib.parse import quote
+from dataclasses import dataclass
+from datetime import datetime, timezone
 
+from ._urls import page_url_from_slug, resolve_base_url, resolve_user_agent
 from .errors import (
     HttpStatusError,
     PageNotFoundError,
 )
-from .fetch import FetchResponse, Fetcher, UrllibFetcher
+from .fetch import Fetcher, FetchResponse, UrllibFetcher
 from .models import Page
 from .parser import parse_page_html
 from .robots import assert_allowed_by_robots
@@ -20,6 +21,14 @@ DEFAULT_BASE_URL = "https://grokipedia.com"
 DEFAULT_SITEMAP_INDEX_URL = "https://assets.grokipedia.com/sitemap/sitemap-index.xml"
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class _CallOptions:
+    timeout: float
+    respect_robots: bool
+    allow_robots_override: bool
+    user_agent: str
 
 
 def _configure_verbose_logging(*, enabled: bool) -> None:
@@ -43,17 +52,6 @@ def _configure_verbose_logging(*, enabled: bool) -> None:
     )
     package_logger.addHandler(handler)
     package_logger.propagate = False
-
-
-def _resolve_base_url(base_url: str) -> str:
-    normalized = base_url.strip().rstrip("/")
-    if not normalized:
-        raise ValueError("base_url must not be empty")
-    return normalized
-
-
-def _resolve_user_agent(user_agent: str | None) -> str:
-    return user_agent or DEFAULT_USER_AGENT
 
 
 def _maybe_check_robots(
@@ -129,8 +127,12 @@ def from_url(
     user_agent: str | None = None,
     fetcher: Fetcher | None = None,
 ) -> Page:
+    # TODO: CAE-2026-02-18T11:36:16-0600 - add improved docstring here since it's public facing
     resolved_fetcher = fetcher or UrllibFetcher()
-    resolved_user_agent = _resolve_user_agent(user_agent)
+    resolved_user_agent = resolve_user_agent(
+        user_agent,
+        default_user_agent=DEFAULT_USER_AGENT,
+    )
 
     logger.debug(
         "from_url start url=%s timeout=%s respect_robots=%s allow_robots_override=%s",
@@ -153,6 +155,7 @@ def from_url(
 
 
 def from_html(html: str, *, source_url: str | None = None) -> Page:
+    # TODO: CAE-2026-02-18T11:36:16-0600 - add improved docstring here since it's public facing
     logger.debug("from_html start source_url=%s", source_url)
     page = parse_page_html(
         html,
@@ -166,12 +169,7 @@ def from_html(html: str, *, source_url: str | None = None) -> Page:
 
 def _page_url_from_title(title: str, *, base_url: str) -> str:
     normalized_title = "_".join(title.strip().split())
-    if not normalized_title:
-        raise ValueError("title must not be empty")
-
-    # Keep URL-safe punctuation and encode the rest.
-    slug = quote(normalized_title, safe="!$&'()*+,;=:@._~-")
-    return f"{_resolve_base_url(base_url)}/page/{slug}"
+    return page_url_from_slug(normalized_title, base_url=base_url)
 
 
 def page(
@@ -184,6 +182,7 @@ def page(
     fetcher: Fetcher | None = None,
     base_url: str = DEFAULT_BASE_URL,
 ) -> Page:
+    # TODO: CAE-2026-02-18T11:36:16-0600 - add improved docstring here since it's public facing
     page_url = _page_url_from_title(title, base_url=base_url)
     return from_url(
         page_url,
@@ -205,6 +204,7 @@ def search(
     fetcher: Fetcher | None = None,
     base_url: str = DEFAULT_BASE_URL,
 ) -> list[str]:
+    # TODO: CAE-2026-02-18T11:36:16-0600 - add improved docstring here since it's public facing
     return run_search(
         search_term_string,
         timeout=timeout,
@@ -234,12 +234,15 @@ class Grokipedia:
     ) -> None:
         _configure_verbose_logging(enabled=verbose)
 
-        self.base_url = _resolve_base_url(base_url)
+        self.base_url = resolve_base_url(base_url)
         self.sitemap_index_url = sitemap_index_url
         self.timeout = timeout
         self.respect_robots = respect_robots
         self.allow_robots_override = allow_robots_override
-        self.user_agent = _resolve_user_agent(user_agent)
+        self.user_agent = resolve_user_agent(
+            user_agent,
+            default_user_agent=DEFAULT_USER_AGENT,
+        )
         self.fetcher = fetcher or UrllibFetcher()
         self._sitemap_manifest = SitemapManifest(
             sitemap_index_url=self.sitemap_index_url,
@@ -254,16 +257,18 @@ class Grokipedia:
         respect_robots: bool | None,
         allow_robots_override: bool | None,
         user_agent: str | None,
-    ) -> tuple[float, bool, bool, str]:
-        return (
-            self.timeout if timeout is None else timeout,
-            self.respect_robots if respect_robots is None else respect_robots,
-            (
+    ) -> _CallOptions:
+        return _CallOptions(
+            timeout=self.timeout if timeout is None else timeout,
+            respect_robots=(
+                self.respect_robots if respect_robots is None else respect_robots
+            ),
+            allow_robots_override=(
                 self.allow_robots_override
                 if allow_robots_override is None
                 else allow_robots_override
             ),
-            self.user_agent if user_agent is None else user_agent,
+            user_agent=self.user_agent if user_agent is None else user_agent,
         )
 
     def from_url(
@@ -275,12 +280,7 @@ class Grokipedia:
         allow_robots_override: bool | None = None,
         user_agent: str | None = None,
     ) -> Page:
-        (
-            resolved_timeout,
-            resolved_respect_robots,
-            resolved_allow_robots_override,
-            resolved_user_agent,
-        ) = self._resolve_call_options(
+        options = self._resolve_call_options(
             timeout=timeout,
             respect_robots=respect_robots,
             allow_robots_override=allow_robots_override,
@@ -289,10 +289,10 @@ class Grokipedia:
 
         return from_url(
             url,
-            timeout=resolved_timeout,
-            respect_robots=resolved_respect_robots,
-            allow_robots_override=resolved_allow_robots_override,
-            user_agent=resolved_user_agent,
+            timeout=options.timeout,
+            respect_robots=options.respect_robots,
+            allow_robots_override=options.allow_robots_override,
+            user_agent=options.user_agent,
             fetcher=self.fetcher,
         )
 
@@ -308,12 +308,7 @@ class Grokipedia:
         allow_robots_override: bool | None = None,
         user_agent: str | None = None,
     ) -> Page:
-        (
-            resolved_timeout,
-            resolved_respect_robots,
-            resolved_allow_robots_override,
-            resolved_user_agent,
-        ) = self._resolve_call_options(
+        options = self._resolve_call_options(
             timeout=timeout,
             respect_robots=respect_robots,
             allow_robots_override=allow_robots_override,
@@ -322,10 +317,10 @@ class Grokipedia:
 
         return page(
             title,
-            timeout=resolved_timeout,
-            respect_robots=resolved_respect_robots,
-            allow_robots_override=resolved_allow_robots_override,
-            user_agent=resolved_user_agent,
+            timeout=options.timeout,
+            respect_robots=options.respect_robots,
+            allow_robots_override=options.allow_robots_override,
+            user_agent=options.user_agent,
             fetcher=self.fetcher,
             base_url=self.base_url,
         )
@@ -339,12 +334,7 @@ class Grokipedia:
         allow_robots_override: bool | None = None,
         user_agent: str | None = None,
     ) -> list[str]:
-        (
-            resolved_timeout,
-            resolved_respect_robots,
-            resolved_allow_robots_override,
-            resolved_user_agent,
-        ) = self._resolve_call_options(
+        options = self._resolve_call_options(
             timeout=timeout,
             respect_robots=respect_robots,
             allow_robots_override=allow_robots_override,
@@ -353,10 +343,10 @@ class Grokipedia:
 
         return search(
             search_term_string,
-            timeout=resolved_timeout,
-            respect_robots=resolved_respect_robots,
-            allow_robots_override=resolved_allow_robots_override,
-            user_agent=resolved_user_agent,
+            timeout=options.timeout,
+            respect_robots=options.respect_robots,
+            allow_robots_override=options.allow_robots_override,
+            user_agent=options.user_agent,
             fetcher=self.fetcher,
             base_url=self.base_url,
         )
@@ -369,12 +359,7 @@ class Grokipedia:
         allow_robots_override: bool | None = None,
         user_agent: str | None = None,
     ) -> dict[str, list[str]]:
-        (
-            resolved_timeout,
-            resolved_respect_robots,
-            resolved_allow_robots_override,
-            resolved_user_agent,
-        ) = self._resolve_call_options(
+        options = self._resolve_call_options(
             timeout=timeout,
             respect_robots=respect_robots,
             allow_robots_override=allow_robots_override,
@@ -382,10 +367,10 @@ class Grokipedia:
         )
 
         return self._sitemap_manifest.refresh(
-            timeout=resolved_timeout,
-            respect_robots=resolved_respect_robots,
-            allow_robots_override=resolved_allow_robots_override,
-            user_agent=resolved_user_agent,
+            timeout=options.timeout,
+            respect_robots=options.respect_robots,
+            allow_robots_override=options.allow_robots_override,
+            user_agent=options.user_agent,
         )
 
     def find_page_url(
@@ -397,12 +382,7 @@ class Grokipedia:
         allow_robots_override: bool | None = None,
         user_agent: str | None = None,
     ) -> str | None:
-        (
-            resolved_timeout,
-            resolved_respect_robots,
-            resolved_allow_robots_override,
-            resolved_user_agent,
-        ) = self._resolve_call_options(
+        options = self._resolve_call_options(
             timeout=timeout,
             respect_robots=respect_robots,
             allow_robots_override=allow_robots_override,
@@ -412,8 +392,8 @@ class Grokipedia:
         candidate_url = _page_url_from_title(title, base_url=self.base_url)
         return self._sitemap_manifest.find_matching_url(
             candidate_url,
-            timeout=resolved_timeout,
-            respect_robots=resolved_respect_robots,
-            allow_robots_override=resolved_allow_robots_override,
-            user_agent=resolved_user_agent,
+            timeout=options.timeout,
+            respect_robots=options.respect_robots,
+            allow_robots_override=options.allow_robots_override,
+            user_agent=options.user_agent,
         )

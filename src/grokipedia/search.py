@@ -1,11 +1,18 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from html.parser import HTMLParser
 import json
 import logging
-from typing import Protocol
-from urllib.parse import quote, quote_plus, unquote, urljoin, urlparse
+from urllib.parse import quote_plus, urljoin, urlparse
 
+from ._types import FetchTextFn
+from ._urls import (
+    canonicalize_url,
+    page_url_from_slug,
+    resolve_base_url,
+    resolve_user_agent,
+)
 from .errors import (
     HttpStatusError,
     ParseError,
@@ -19,50 +26,27 @@ DEFAULT_SEARCH_API_PATH = "/api/full-text-search"
 _logger = logging.getLogger(__name__)
 
 
-class FetchTextFn(Protocol):
-    def __call__(
-        self,
-        url: str,
-        *,
-        timeout: float,
-        respect_robots: bool,
-        allow_robots_override: bool,
-        user_agent: str,
-        fetcher: Fetcher,
-        not_found_is_page: bool,
-    ) -> FetchResponse: ...
+@dataclass(frozen=True, slots=True)
+class _SearchRequest:
+    query: str
+    timeout: float
+    respect_robots: bool
+    allow_robots_override: bool
+    user_agent: str
+    fetcher: Fetcher
+    base_url: str
 
+    @property
+    def api_url(self) -> str:
+        encoded_query = quote_plus(self.query)
+        return (
+            f"{self.base_url}{DEFAULT_SEARCH_API_PATH}"
+            f"?query={encoded_query}&limit=25&offset=0"
+        )
 
-def _resolve_base_url(base_url: str) -> str:
-    normalized = base_url.strip().rstrip("/")
-    if not normalized:
-        raise ValueError("base_url must not be empty")
-    return normalized
-
-
-def _resolve_user_agent(
-    user_agent: str | None,
-    *,
-    default_user_agent: str,
-) -> str:
-    return user_agent or default_user_agent
-
-
-def _canonicalize_url(url: str) -> str:
-    parsed = urlparse(url)
-    scheme = parsed.scheme.lower()
-    netloc = parsed.netloc.lower()
-    path = unquote(parsed.path)
-    return f"{scheme}://{netloc}{path}"
-
-
-def _page_url_from_slug(slug: str, *, base_url: str) -> str:
-    normalized_slug = slug.strip()
-    if not normalized_slug:
-        raise ValueError("slug must not be empty")
-
-    encoded_slug = quote(normalized_slug, safe="!$&'()*+,;=:@._~-")
-    return f"{_resolve_base_url(base_url)}/page/{encoded_slug}"
+    @property
+    def html_url(self) -> str:
+        return f"{self.base_url}/search?q={quote_plus(self.query)}"
 
 
 class _SearchResultLinkParser(HTMLParser):
@@ -87,7 +71,7 @@ def _extract_search_page_urls(html: str, *, base_url: str) -> list[str]:
     except Exception as exc:
         raise ParseError(f"Unable to parse search results HTML: {exc}") from exc
 
-    base = _resolve_base_url(base_url)
+    base = resolve_base_url(base_url)
     expected_host = urlparse(base).netloc.lower()
     seen: set[str] = set()
     page_urls: list[str] = []
@@ -131,8 +115,8 @@ def _extract_search_api_page_urls(payload: str, *, base_url: str) -> list[str]:
         if not isinstance(slug, str) or not slug.strip():
             continue
 
-        page_url = _page_url_from_slug(slug, base_url=base_url)
-        dedupe_key = _canonicalize_url(page_url)
+        page_url = page_url_from_slug(slug, base_url=base_url)
+        dedupe_key = canonicalize_url(page_url)
         if dedupe_key in seen:
             continue
 
@@ -140,6 +124,23 @@ def _extract_search_api_page_urls(payload: str, *, base_url: str) -> list[str]:
         page_urls.append(page_url)
 
     return page_urls
+
+
+def _fetch_search_response(
+    url: str,
+    *,
+    request: _SearchRequest,
+    fetch_text: FetchTextFn,
+) -> FetchResponse:
+    return fetch_text(
+        url,
+        timeout=request.timeout,
+        respect_robots=request.respect_robots,
+        allow_robots_override=request.allow_robots_override,
+        user_agent=request.user_agent,
+        fetcher=request.fetcher,
+        not_found_is_page=False,
+    )
 
 
 def run_search(
@@ -161,31 +162,29 @@ def run_search(
     if not query:
         raise ValueError("search_term_string must not be empty")
 
-    resolved_fetcher = fetcher or UrllibFetcher()
-    resolved_user_agent = _resolve_user_agent(
-        user_agent,
-        default_user_agent=default_user_agent,
+    request = _SearchRequest(
+        query=query,
+        timeout=timeout,
+        respect_robots=respect_robots,
+        allow_robots_override=allow_robots_override,
+        user_agent=resolve_user_agent(
+            user_agent,
+            default_user_agent=default_user_agent,
+        ),
+        fetcher=fetcher or UrllibFetcher(),
+        base_url=resolve_base_url(base_url),
     )
-    resolved_base_url = _resolve_base_url(base_url)
-    search_api_url = (
-        f"{resolved_base_url}{DEFAULT_SEARCH_API_PATH}"
-        f"?query={quote_plus(query)}&limit=25&offset=0"
-    )
-    active_logger.debug("search start query=%s url=%s", query, search_api_url)
+    active_logger.debug("search start query=%s url=%s", query, request.api_url)
 
     try:
-        response = fetch_text(
-            search_api_url,
-            timeout=timeout,
-            respect_robots=respect_robots,
-            allow_robots_override=allow_robots_override,
-            user_agent=resolved_user_agent,
-            fetcher=resolved_fetcher,
-            not_found_is_page=False,
+        response = _fetch_search_response(
+            request.api_url,
+            request=request,
+            fetch_text=fetch_text,
         )
         page_urls = _extract_search_api_page_urls(
             response.text,
-            base_url=resolved_base_url,
+            base_url=request.base_url,
         )
         active_logger.debug(
             "search api results query=%s count=%s", query, len(page_urls)
@@ -203,17 +202,12 @@ def run_search(
             exc,
         )
 
-    search_url = f"{resolved_base_url}/search?q={quote_plus(query)}"
-    response = fetch_text(
-        search_url,
-        timeout=timeout,
-        respect_robots=respect_robots,
-        allow_robots_override=allow_robots_override,
-        user_agent=resolved_user_agent,
-        fetcher=resolved_fetcher,
-        not_found_is_page=False,
+    response = _fetch_search_response(
+        request.html_url,
+        request=request,
+        fetch_text=fetch_text,
     )
-    page_urls = _extract_search_page_urls(response.text, base_url=resolved_base_url)
+    page_urls = _extract_search_page_urls(response.text, base_url=request.base_url)
     active_logger.debug(
         "search html fallback results query=%s count=%s", query, len(page_urls)
     )
