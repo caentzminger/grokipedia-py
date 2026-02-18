@@ -146,6 +146,7 @@ def parse_page_html(
     lead_figure = _extract_lead_figure(article, base_url=page_url)
     sections, references = _build_sections_and_references(blocks)
     _attach_markdown_media_from_payload(html, sections, base_url=page_url)
+    links = _extract_links(article, base_url=page_url)
 
     metadata = PageMetadata(
         status_code=status_code,
@@ -178,6 +179,7 @@ def parse_page_html(
         lead_figure=lead_figure,
         sections=sections,
         references=references,
+        links=links,
         metadata=metadata,
     )
 
@@ -300,6 +302,28 @@ def _extract_slug(url: str) -> str:
         return unquote(slug)
 
     return unquote(path.strip("/"))
+
+
+def _extract_links(article: _Node, *, base_url: str) -> list[str]:
+    links: list[str] = []
+    seen: set[str] = set()
+
+    for node in _iter_nodes(article):
+        if node.tag != "a":
+            continue
+
+        href = node.attrs.get("href", "").strip()
+        if not href:
+            continue
+
+        resolved = urljoin(base_url, href) if base_url else href
+        if resolved in seen:
+            continue
+
+        seen.add(resolved)
+        links.append(resolved)
+
+    return links
 
 
 def _extract_infobox(article: _Node) -> list[InfoboxField]:

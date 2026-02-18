@@ -14,7 +14,7 @@ def test_from_html_parses_without_network() -> None:
       <body>
         <article class='text-[16px]'>
           <h1 id='sample'>Sample Page</h1>
-          <p>This is a sample intro.</p>
+          <p>This is a sample intro with <a href='/page/Example'>Example</a>.</p>
           <h2 id='overview'>Overview</h2>
           <p>This is body content.</p>
         </article>
@@ -27,11 +27,12 @@ def test_from_html_parses_without_network() -> None:
     assert page.url == "https://grokipedia.com/page/sample"
     assert page.slug == "sample"
     assert page.title == "Sample Page"
-    assert page.intro_text == "This is a sample intro."
+    assert page.intro_text == "This is a sample intro with Example."
     assert page.infobox == []
     assert page.lead_figure is None
     assert page.metadata.keywords is None
     assert page.sections[0].title == "Overview"
+    assert page.links == ["https://grokipedia.com/page/Example"]
 
 
 def test_from_html_parses_span_tts_content_blocks() -> None:
@@ -59,6 +60,7 @@ def test_from_html_parses_span_tts_content_blocks() -> None:
     assert page.sections[0].title == "Overview"
     assert page.sections[0].subsections[0].title == "Details"
     assert page.sections[0].subsections[0].text == "Acme builds rockets and tools."
+    assert page.links == ["https://example.com"]
 
 
 def test_from_html_parses_infobox_lead_figure_and_keywords() -> None:
@@ -110,6 +112,7 @@ def test_from_html_parses_infobox_lead_figure_and_keywords() -> None:
     assert page.lead_figure.alt_text == "Jeffrey Epstein"
 
     assert page.metadata.keywords == ["Epstein", "Jeff Epstein"]
+    assert page.links == []
 
 
 def test_from_html_parses_inline_subsection_media_indexed() -> None:
@@ -201,4 +204,5 @@ def test_page_to_json_wraps_to_dict() -> None:
     assert payload_from_json == payload_from_dict
     assert payload_from_dict["title"] == "Sample Page"
     assert payload_from_dict["sections"][0]["title"] == "Overview"
+    assert payload_from_dict["links"] == []
     assert payload_from_dict["metadata"]["fetched_at_utc"].endswith("Z")

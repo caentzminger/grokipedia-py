@@ -63,6 +63,7 @@ class Page:
     lead_figure: LeadFigure | None
     sections: list[Section]
     references: list[Reference]
+    links: list[str]
     metadata: PageMetadata
 
     @property
