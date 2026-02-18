@@ -23,7 +23,9 @@ print(page.lead_figure)
 print([section.title for section in page.sections])
 print(page.sections[0].subsections[0].media[:1])
 print(len(page.references))
+print(page.links[:5])
 print(page.metadata.keywords)
+print(page.markdown[:500])
 print(page.to_json(indent=2))
 ```
 
@@ -72,9 +74,10 @@ You can bypass robots enforcement by setting either:
 - `lead_figure` (`LeadFigure` from the top figure image/caption when present)
 - `sections` (`Section` tree with nested `subsections`; each section includes indexed `media`)
 - `references` (`Reference` list)
+- `links` (ordered unique links extracted from the main article)
 - `metadata` (`PageMetadata`, including optional `keywords`)
 
-`Page` also includes `to_dict()` and `to_json()` for simple serialization.
+`Page` also includes `markdown`, `to_dict()`, and `to_json()` for simple serialization.
 
 ## Exceptions
 

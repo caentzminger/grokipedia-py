@@ -182,6 +182,52 @@ def test_from_html_parses_embedded_markdown_subsection_media() -> None:
     assert subsection.media[1].caption == "Paren detail caption"
 
 
+def test_page_markdown_renders_structured_content() -> None:
+    html = """
+    <html>
+      <body>
+        <article class='text-[16px]'>
+          <h1 id='sample'>Sample Page</h1>
+          <p>Sample intro text.</p>
+          <div>
+            <dt>Founded</dt>
+            <dd>2020</dd>
+          </div>
+          <figure>
+            <img src='https://assets.grokipedia.com/wiki/images/lead.jpg' alt='Lead image' />
+            <figcaption>Lead caption</figcaption>
+          </figure>
+          <h2 id='overview'>Overview</h2>
+          <p>Overview body text.</p>
+          <h3 id='details'>Details</h3>
+          <p>Details body text.</p>
+          <figure>
+            <img src='https://assets.grokipedia.com/wiki/images/detail.jpg' alt='Detail image' />
+            <figcaption>Detail caption</figcaption>
+          </figure>
+        </article>
+      </body>
+    </html>
+    """
+
+    page = from_html(html, source_url="https://grokipedia.com/page/sample")
+    markdown = page.markdown
+
+    assert "# Sample Page" in markdown
+    assert "Sample intro text." in markdown
+    assert "## Infobox" in markdown
+    assert "- **Founded:** 2020" in markdown
+    assert (
+        "![Lead image](https://assets.grokipedia.com/wiki/images/lead.jpg)" in markdown
+    )
+    assert "## Overview" in markdown
+    assert "### Details" in markdown
+    assert (
+        "![Detail image](https://assets.grokipedia.com/wiki/images/detail.jpg)"
+        in markdown
+    )
+
+
 def test_page_to_json_wraps_to_dict() -> None:
     html = """
     <html>

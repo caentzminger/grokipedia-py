@@ -74,6 +74,58 @@ class Page:
     def lead_media(self) -> LeadFigure | None:
         return self.lead_figure
 
+    @property
+    def markdown(self) -> str:
+        blocks: list[str] = [f"# {self.title}"]
+
+        if self.intro_text:
+            blocks.append(self.intro_text)
+
+        if self.infobox:
+            infobox_lines = [
+                f"- **{field.label}:** {field.value}" for field in self.infobox
+            ]
+            blocks.append("## Infobox\n" + "\n".join(infobox_lines))
+
+        if self.lead_figure is not None:
+            blocks.append(
+                _render_markdown_media(
+                    image_url=self.lead_figure.image_url,
+                    alt_text=self.lead_figure.alt_text,
+                    caption=self.lead_figure.caption,
+                )
+            )
+
+        for section in self.sections:
+            blocks.append(f"## {section.title}")
+            if section.text:
+                blocks.append(section.text)
+
+            for media in section.media:
+                blocks.append(
+                    _render_markdown_media(
+                        image_url=media.image_url,
+                        alt_text=media.alt_text,
+                        caption=media.caption,
+                    )
+                )
+
+            for subsection in section.subsections:
+                blocks.append(f"### {subsection.title}")
+                if subsection.text:
+                    blocks.append(subsection.text)
+
+                for media in subsection.media:
+                    blocks.append(
+                        _render_markdown_media(
+                            image_url=media.image_url,
+                            alt_text=media.alt_text,
+                            caption=media.caption,
+                        )
+                    )
+
+        return "\n\n".join(block for block in blocks if block.strip())
+
     def to_dict(self) -> dict[str, Any]:
         return _to_dict_compatible(asdict(self))
 
@@ -83,6 +135,18 @@ class Page:
             ensure_ascii=False,
             indent=indent,
         )
+
+
+def _render_markdown_media(
+    *,
+    image_url: str,
+    alt_text: str | None,
+    caption: str | None,
+) -> str:
+    image_line = f"![{alt_text or ''}]({image_url})"
+    if caption:
+        return f"{image_line}\n*{caption}*"
+    return image_line
 
 
 def _to_dict_compatible(value: Any) -> Any:
