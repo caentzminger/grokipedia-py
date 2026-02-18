@@ -17,11 +17,13 @@ page = from_url("https://grokipedia.com/page/13065923")
 
 print(page.title)
 print(page.slug)
-print(page.lede_text)
+print(page.intro_text)
 print(page.infobox[:3])
-print(page.lead_media)
+print(page.lead_figure)
 print([section.title for section in page.sections])
+print(page.sections[0].subsections[0].media[:1])
 print(len(page.references))
+print(page.metadata.keywords)
 print(page.to_json(indent=2))
 ```
 
@@ -54,12 +56,12 @@ You can bypass robots enforcement by setting either:
 - `url`
 - `slug`
 - `title`
-- `lede_text`
+- `intro_text`
 - `infobox` (`InfoboxField` list for `dt`/`dd` fact rows)
-- `lead_media` (`LeadMedia` from lead figure image/caption when present)
-- `sections` (`Section` tree with nested `subsections`)
+- `lead_figure` (`LeadFigure` from the top figure image/caption when present)
+- `sections` (`Section` tree with nested `subsections`; each section includes indexed `media`)
 - `references` (`Reference` list)
-- `metadata` (`PageMetadata`)
+- `metadata` (`PageMetadata`, including optional `keywords`)
 
 `Page` also includes `to_dict()` and `to_json()` for simple serialization.
 

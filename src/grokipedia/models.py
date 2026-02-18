@@ -13,6 +13,7 @@ class PageMetadata:
     fact_check_label: str | None
     canonical_url: str | None
     description: str | None
+    keywords: list[str] | None
 
 
 @dataclass(slots=True)
@@ -29,7 +30,15 @@ class InfoboxField:
 
 
 @dataclass(slots=True)
-class LeadMedia:
+class LeadFigure:
+    image_url: str
+    caption: str | None
+    alt_text: str | None
+
+
+@dataclass(slots=True)
+class SectionMedia:
+    index: int
     image_url: str
     caption: str | None
     alt_text: str | None
@@ -41,6 +50,7 @@ class Section:
     title: str
     level: int
     text: str
+    media: list[SectionMedia] = field(default_factory=list)
     subsections: list[Section] = field(default_factory=list)
 
 
@@ -49,12 +59,20 @@ class Page:
     url: str
     slug: str
     title: str
-    lede_text: str | None
+    intro_text: str | None
     infobox: list[InfoboxField]
-    lead_media: LeadMedia | None
+    lead_figure: LeadFigure | None
     sections: list[Section]
     references: list[Reference]
     metadata: PageMetadata
+
+    @property
+    def lede_text(self) -> str | None:
+        return self.intro_text
+
+    @property
+    def lead_media(self) -> LeadFigure | None:
+        return self.lead_figure
 
     def to_dict(self) -> dict[str, Any]:
         return _to_dict_compatible(asdict(self))

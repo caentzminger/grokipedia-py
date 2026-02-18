@@ -13,8 +13,8 @@ def test_parse_company_page_fixture() -> None:
 
     assert page.title == "13065923"
     assert page.slug == "13065923"
-    assert page.lede_text is not None
-    assert "Harris Professional Solutions Limited" in page.lede_text
+    assert page.intro_text is not None
+    assert "Harris Professional Solutions Limited" in page.intro_text
 
     section_titles = [section.title for section in page.sections]
     assert section_titles == ["Overview", "History", "References"]

@@ -11,7 +11,15 @@ from .errors import (
     RobotsUnavailableError,
 )
 from .fetch import FetchResponse, Fetcher, UrllibFetcher
-from .models import InfoboxField, LeadMedia, Page, PageMetadata, Reference, Section
+from .models import (
+    InfoboxField,
+    LeadFigure,
+    Page,
+    PageMetadata,
+    Reference,
+    Section,
+    SectionMedia,
+)
 
 SITEMAP_INDEX = "https://assets.grokipedia.com/sitemap/sitemap-index.xml"
 
@@ -22,7 +30,7 @@ __all__ = [
     "GrokipediaError",
     "HttpStatusError",
     "InfoboxField",
-    "LeadMedia",
+    "LeadFigure",
     "Page",
     "PageMetadata",
     "PageNotFoundError",
@@ -32,6 +40,7 @@ __all__ = [
     "RobotsUnavailableError",
     "SITEMAP_INDEX",
     "Section",
+    "SectionMedia",
     "UrllibFetcher",
     "from_html",
     "from_url",

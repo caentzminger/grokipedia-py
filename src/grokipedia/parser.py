@@ -8,7 +8,15 @@ from typing import Iterable
 from urllib.parse import parse_qs, unquote, urljoin, urlparse
 
 from .errors import ParseError
-from .models import InfoboxField, LeadMedia, Page, PageMetadata, Reference, Section
+from .models import (
+    InfoboxField,
+    LeadFigure,
+    Page,
+    PageMetadata,
+    Reference,
+    Section,
+    SectionMedia,
+)
 
 _FACT_CHECK_PATTERN = re.compile(
     r"Fact-checked by Grok(?:\s*<!--.*?-->\s*)*\s*([^<\n]{0,120})",
@@ -90,6 +98,13 @@ class _DOMBuilder(HTMLParser):
 
 
 @dataclass(slots=True)
+class _FigureData:
+    image_url: str
+    caption: str | None
+    alt_text: str | None
+
+
+@dataclass(slots=True)
 class _Block:
     kind: str
     text: str
@@ -97,6 +112,7 @@ class _Block:
     heading_level: int | None = None
     heading_id: str | None = None
     heading_title: str | None = None
+    figure: _FigureData | None = None
 
 
 def parse_page_html(
@@ -117,19 +133,19 @@ def parse_page_html(
     if article is None:
         raise ParseError("Could not identify main content article")
 
-    blocks = _extract_blocks(article)
+    canonical_url = _extract_canonical_url(root)
+    page_url = source_url or canonical_url or ""
+
+    blocks = _extract_blocks(article, base_url=page_url)
     title = _extract_title(blocks)
     if not title:
         title = _extract_meta_title(root)
     if not title:
         raise ParseError("Could not extract page title")
 
-    canonical_url = _extract_canonical_url(root)
-    page_url = source_url or canonical_url or ""
-
-    lede_text = _extract_lede(blocks)
+    intro_text = _extract_intro(blocks)
     infobox = _extract_infobox(article)
-    lead_media = _extract_lead_media(article, base_url=page_url)
+    lead_figure = _extract_lead_figure(article, base_url=page_url)
     sections, references = _build_sections_and_references(blocks)
 
     metadata = PageMetadata(
@@ -138,15 +154,16 @@ def parse_page_html(
         fact_check_label=_extract_fact_check_label(html),
         canonical_url=canonical_url,
         description=_extract_description(root),
+        keywords=_extract_keywords(root),
     )
 
     return Page(
         url=page_url,
         slug=_extract_slug(page_url),
         title=title,
-        lede_text=lede_text,
+        intro_text=intro_text,
         infobox=infobox,
-        lead_media=lead_media,
+        lead_figure=lead_figure,
         sections=sections,
         references=references,
         metadata=metadata,
@@ -194,10 +211,12 @@ def _extract_meta_title(root: _Node) -> str | None:
                 content = _normalize_ws(node.attrs.get("content", ""))
                 if content:
                     return content
+
         if node.tag == "title":
             title = _normalize_ws(_text_content(node))
             if title:
                 return title
+
     return None
 
 
@@ -211,6 +230,7 @@ def _extract_canonical_url(root: _Node) -> str | None:
     for node in _iter_nodes(root):
         if node.tag != "meta":
             continue
+
         prop = node.attrs.get("property", "")
         if prop in {"og:url", "twitter:url"}:
             content = node.attrs.get("content", "").strip()
@@ -235,24 +255,50 @@ def _extract_description(root: _Node) -> str | None:
     return None
 
 
+def _extract_keywords(root: _Node) -> list[str] | None:
+    for node in _iter_nodes(root):
+        if node.tag != "meta":
+            continue
+
+        name = node.attrs.get("name", "").lower()
+        item_prop = node.attrs.get("itemprop", "").lower()
+        if name != "keywords" and item_prop != "keywords":
+            continue
+
+        content = node.attrs.get("content", "")
+        if not content:
+            continue
+
+        keywords = [_normalize_ws(part) for part in content.split(",")]
+        values = [keyword for keyword in keywords if keyword]
+        if values:
+            return values
+
+    return None
+
+
 def _extract_fact_check_label(html: str) -> str | None:
     match = _FACT_CHECK_PATTERN.search(html)
     if not match:
         return None
+
     suffix = _normalize_ws(match.group(1))
     if not suffix:
         return "Fact-checked by Grok"
+
     return f"Fact-checked by Grok {suffix}"
 
 
 def _extract_slug(url: str) -> str:
     if not url:
         return ""
+
     parsed = urlparse(url)
     path = parsed.path
     if path.startswith("/page/"):
         slug = path[len("/page/") :]
         return unquote(slug)
+
     return unquote(path.strip("/"))
 
 
@@ -282,40 +328,52 @@ def _extract_infobox(article: _Node) -> list[InfoboxField]:
     return fields
 
 
-def _extract_lead_media(article: _Node, *, base_url: str) -> LeadMedia | None:
+def _extract_lead_figure(article: _Node, *, base_url: str) -> LeadFigure | None:
     for node in _iter_nodes(article):
         if node.tag != "figure":
             continue
 
-        image_node = next(
-            (child for child in _iter_nodes(node) if child.tag == "img"), None
-        )
-        if image_node is None:
+        figure = _extract_figure_data(node, base_url=base_url)
+        if figure is None:
             continue
 
-        raw_src = image_node.attrs.get("src", "").strip()
-        if not raw_src:
-            raw_srcset = image_node.attrs.get("srcset", "").strip()
-            if raw_srcset:
-                raw_src = raw_srcset.split(",", maxsplit=1)[0].split(" ", maxsplit=1)[0]
-        if not raw_src:
-            continue
-
-        image_url = _normalize_image_url(raw_src, base_url)
-
-        caption_node = next(
-            (child for child in _iter_nodes(node) if child.tag == "figcaption"),
-            None,
+        return LeadFigure(
+            image_url=figure.image_url,
+            caption=figure.caption,
+            alt_text=figure.alt_text,
         )
-        caption = _normalize_ws(_render_inline(caption_node)) if caption_node else ""
-        caption = caption or None
-
-        alt_text = _normalize_ws(image_node.attrs.get("alt", ""))
-        alt_text = alt_text or None
-
-        return LeadMedia(image_url=image_url, caption=caption, alt_text=alt_text)
 
     return None
+
+
+def _extract_figure_data(node: _Node, *, base_url: str) -> _FigureData | None:
+    image_node = next(
+        (child for child in _iter_nodes(node) if child.tag == "img"), None
+    )
+    if image_node is None:
+        return None
+
+    raw_src = image_node.attrs.get("src", "").strip()
+    if not raw_src:
+        raw_srcset = image_node.attrs.get("srcset", "").strip()
+        if raw_srcset:
+            raw_src = raw_srcset.split(",", maxsplit=1)[0].split(" ", maxsplit=1)[0]
+    if not raw_src:
+        return None
+
+    image_url = _normalize_image_url(raw_src, base_url)
+
+    caption_node = next(
+        (child for child in _iter_nodes(node) if child.tag == "figcaption"),
+        None,
+    )
+    caption = _normalize_ws(_render_inline(caption_node)) if caption_node else ""
+    caption = caption or None
+
+    alt_text = _normalize_ws(image_node.attrs.get("alt", ""))
+    alt_text = alt_text or None
+
+    return _FigureData(image_url=image_url, caption=caption, alt_text=alt_text)
 
 
 def _normalize_image_url(raw_src: str, base_url: str) -> str:
@@ -327,6 +385,7 @@ def _normalize_image_url(raw_src: str, base_url: str) -> str:
         if image_values:
             inner = unquote(image_values[0])
             return urljoin(base_url, inner) if base_url else inner
+
     return resolved
 
 
@@ -352,7 +411,7 @@ def _select_article(root: _Node) -> _Node | None:
     return articles[0]
 
 
-def _extract_blocks(article: _Node) -> list[_Block]:
+def _extract_blocks(article: _Node, *, base_url: str) -> list[_Block]:
     blocks: list[_Block] = []
 
     def visit(node: _Node) -> None:
@@ -384,6 +443,12 @@ def _extract_blocks(article: _Node) -> list[_Block]:
             text = _normalize_ws(_render_inline(node))
             if text:
                 blocks.append(_Block(kind="paragraph", text=text, node=node))
+            return
+
+        if node.tag == "figure":
+            figure = _extract_figure_data(node, base_url=base_url)
+            if figure:
+                blocks.append(_Block(kind="figure", text="", node=node, figure=figure))
             return
 
         if node.tag in {"ul", "ol"}:
@@ -455,6 +520,7 @@ def _render_list(node: _Node) -> str:
         text = _normalize_ws(_render_inline(item))
         if not text:
             continue
+
         prefix = f"{index}." if ordered else "-"
         lines.append(f"{prefix} {text}")
 
@@ -484,10 +550,11 @@ def _extract_title(blocks: list[_Block]) -> str | None:
     for block in blocks:
         if block.kind == "heading" and block.heading_level == 1 and block.heading_title:
             return block.heading_title
+
     return None
 
 
-def _extract_lede(blocks: list[_Block]) -> str | None:
+def _extract_intro(blocks: list[_Block]) -> str | None:
     first_h2_index = next(
         (
             index
@@ -535,6 +602,7 @@ def _build_sections_and_references(
                     title=heading_title,
                     level=2,
                     text="",
+                    media=[],
                     subsections=[],
                 )
                 sections.append(current_section)
@@ -549,6 +617,7 @@ def _build_sections_and_references(
                         title="Overview",
                         level=2,
                         text="",
+                        media=[],
                         subsections=[],
                     )
                     sections.append(current_section)
@@ -558,6 +627,7 @@ def _build_sections_and_references(
                     title=heading_title,
                     level=3,
                     text="",
+                    media=[],
                     subsections=[],
                 )
                 current_section.subsections.append(current_subsection)
@@ -566,6 +636,17 @@ def _build_sections_and_references(
 
         target_section = current_subsection or current_section
         if target_section is None:
+            continue
+
+        if block.kind == "figure" and block.figure is not None:
+            target_section.media.append(
+                SectionMedia(
+                    index=len(target_section.media) + 1,
+                    image_url=block.figure.image_url,
+                    caption=block.figure.caption,
+                    alt_text=block.figure.alt_text,
+                )
+            )
             continue
 
         target_section.text = _append_text(target_section.text, block.text)
@@ -593,6 +674,7 @@ def _extract_references_from_list(node: _Node, *, start_index: int) -> list[Refe
         text = _normalize_ws(_render_inline(item))
         if not text:
             continue
+
         href = _first_link(item)
         references.append(
             Reference(index=start_index + offset, text=text, url=href),
@@ -607,6 +689,7 @@ def _first_link(node: _Node) -> str | None:
             href = child.attrs.get("href", "").strip()
             if href:
                 return href
+
     return None
 
 
