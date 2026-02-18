@@ -37,6 +37,7 @@ Homepage = "https://github.com/caentzminger/grokipedia-py"
 Repository = "https://github.com/caentzminger/grokipedia-py"
 Issues = "https://github.com/caentzminger/grokipedia-py/issues"
 Changelog = "https://github.com/caentzminger/grokipedia-py/blob/main/CHANGELOG.md"
+Documentation = "https://github.com/caentzminger/grokipedia-py#readme"
 
 [build-system]
 requires = ["uv_build>=0.10.3,<0.11.0"]

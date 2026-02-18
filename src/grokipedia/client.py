@@ -127,7 +127,13 @@ def from_url(
     user_agent: str | None = None,
     fetcher: Fetcher | None = None,
 ) -> Page:
-    # TODO: CAE-2026-02-18T11:36:16-0600 - add improved docstring here since it's public facing
+    """Fetch and parse a Grokipedia page URL into a structured ``Page``.
+
+    Raises ``PageNotFoundError`` for HTTP 404 and ``HttpStatusError`` for other
+    HTTP status codes >= 400. Robots policy is enforced by default and can be
+    disabled with ``respect_robots=False`` or bypassed with
+    ``allow_robots_override=True``.
+    """
     resolved_fetcher = fetcher or UrllibFetcher()
     resolved_user_agent = resolve_user_agent(
         user_agent,
@@ -155,7 +161,7 @@ def from_url(
 
 
 def from_html(html: str, *, source_url: str | None = None) -> Page:
-    # TODO: CAE-2026-02-18T11:36:16-0600 - add improved docstring here since it's public facing
+    """Parse a raw Grokipedia HTML document without any network requests."""
     logger.debug("from_html start source_url=%s", source_url)
     page = parse_page_html(
         html,
@@ -182,7 +188,7 @@ def page(
     fetcher: Fetcher | None = None,
     base_url: str = DEFAULT_BASE_URL,
 ) -> Page:
-    # TODO: CAE-2026-02-18T11:36:16-0600 - add improved docstring here since it's public facing
+    """Resolve a title to ``/page/<slug>`` and return the parsed ``Page``."""
     page_url = _page_url_from_title(title, base_url=base_url)
     return from_url(
         page_url,
@@ -204,7 +210,7 @@ def search(
     fetcher: Fetcher | None = None,
     base_url: str = DEFAULT_BASE_URL,
 ) -> list[str]:
-    # TODO: CAE-2026-02-18T11:36:16-0600 - add improved docstring here since it's public facing
+    """Return matching Grokipedia page URLs for a search term."""
     return run_search(
         search_term_string,
         timeout=timeout,

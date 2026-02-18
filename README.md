@@ -21,7 +21,16 @@ print(page.intro_text)
 print(page.infobox[:3])
 print(page.lead_figure)
 print([section.title for section in page.sections])
-print(page.sections[0].subsections[0].media[:1])
+first_media = next(
+    (
+        subsection.media
+        for section in page.sections
+        for subsection in section.subsections
+        if subsection.media
+    ),
+    [],
+)
+print(first_media[:1])
 print(len(page.references))
 print(page.links[:5])
 print(page.metadata.keywords)
@@ -60,7 +69,7 @@ If this returns `[]`, try:
 results = search("hello world", respect_robots=False)
 ```
 
-Today, `https://grokipedia.com/robots.txt` disallows `/api/`, and `/search` is mostly client-rendered HTML.
+As of February 18, 2026, `https://grokipedia.com/robots.txt` disallows `/api/`, and `/search` is mostly client-rendered HTML.
 
 Use class-based API with sitemap manifest caching:
 
@@ -85,6 +94,20 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("grokipedia").setLevel(logging.DEBUG)
+```
+
+## Development & CI
+
+This project stays runtime dependency-free (`dependencies = []`) and relies on
+the standard library for runtime behavior.
+
+```bash
+just setup
+just fmt-py
+just lint-py
+just typecheck
+just test
+just ci
 ```
 
 ## Robots behavior
