@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import logging
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from html.parser import HTMLParser
@@ -19,6 +21,10 @@ from .models import (
 )
 
 logger = logging.getLogger(__name__)
+_NEXT_PUSH_PAYLOAD_RE = re.compile(
+    r'self\.__next_f\.push\(\[\s*\d+\s*,\s*"((?:\\.|[^"\\])*)"\s*\]\s*\);',
+    re.DOTALL,
+)
 
 _VOID_TAGS = {
     "area",
@@ -112,6 +118,14 @@ class _Block:
     figure: _FigureData | None = None
 
 
+@dataclass(slots=True)
+class _HeadMetadata:
+    title: str | None = None
+    canonical_url: str | None = None
+    description: str | None = None
+    keywords: list[str] | None = None
+
+
 def parse_page_html(
     html: str,
     *,
@@ -131,13 +145,14 @@ def parse_page_html(
     if article is None:
         raise ParseError("Could not identify main content article")
 
-    canonical_url = _extract_canonical_url(root)
+    head_metadata = _extract_head_metadata(root)
+    canonical_url = head_metadata.canonical_url
     page_url = source_url or canonical_url or ""
 
     blocks = _extract_blocks(article, base_url=page_url)
     title = _extract_title(blocks)
     if not title:
-        title = _extract_meta_title(root)
+        title = head_metadata.title
     if not title:
         raise ParseError("Could not extract page title")
 
@@ -145,15 +160,15 @@ def parse_page_html(
     infobox = _extract_infobox(article)
     lead_figure = _extract_lead_figure(article, base_url=page_url)
     sections, references = _build_sections_and_references(blocks)
-    _attach_markdown_media_from_payload(html, sections, base_url=page_url)
+    _attach_markdown_media_from_payload(root, sections, base_url=page_url)
     links = _extract_links(article, base_url=page_url)
 
     metadata = PageMetadata(
         status_code=status_code,
         fetched_at_utc=fetched_at_utc or datetime.now(timezone.utc),
         canonical_url=canonical_url,
-        description=_extract_description(root),
-        keywords=_extract_keywords(root),
+        description=head_metadata.description,
+        keywords=head_metadata.keywords,
     )
 
     media_count = sum(
@@ -217,83 +232,63 @@ def _normalize_ws(text: str) -> str:
     return " ".join(text.split())
 
 
-def _extract_meta_title(root: _Node) -> str | None:
-    """Extract a best-effort title from head metadata and <title>."""
-    for node in _iter_nodes(root):
+def _extract_head_metadata(root: _Node) -> _HeadMetadata:
+    """Extract title/canonical/description/keywords with a single traversal."""
+    metadata = _HeadMetadata()
+    fallback_canonical_url: str | None = None
+    head = next((node for node in _iter_nodes(root) if node.tag == "head"), root)
+
+    for node in _iter_nodes(head):
         if node.tag == "meta":
             prop = node.attrs.get("property", "")
             name = node.attrs.get("name", "")
-            if prop == "og:title" or name == "twitter:title":
+
+            if metadata.title is None and (
+                prop == "og:title" or name == "twitter:title"
+            ):
                 content = _normalize_ws(node.attrs.get("content", ""))
                 if content:
-                    return content
+                    metadata.title = content
 
-        if node.tag == "title":
+            if metadata.description is None and (
+                name == "description" or prop == "og:description"
+            ):
+                content = _normalize_ws(node.attrs.get("content", ""))
+                if content:
+                    metadata.description = content
+
+            if fallback_canonical_url is None and prop in {"og:url", "twitter:url"}:
+                content = node.attrs.get("content", "").strip()
+                if content:
+                    fallback_canonical_url = content
+
+            if metadata.keywords is None:
+                name_lower = name.lower()
+                item_prop = node.attrs.get("itemprop", "").lower()
+                if name_lower == "keywords" or item_prop == "keywords":
+                    content = node.attrs.get("content", "")
+                    keywords = [_normalize_ws(part) for part in content.split(",")]
+                    values = [keyword for keyword in keywords if keyword]
+                    if values:
+                        metadata.keywords = values
+            continue
+
+        if node.tag == "link" and metadata.canonical_url is None:
+            rel = node.attrs.get("rel", "").lower()
+            if rel == "canonical":
+                href = node.attrs.get("href", "").strip()
+                if href:
+                    metadata.canonical_url = href
+            continue
+
+        if node.tag == "title" and metadata.title is None:
             title = _normalize_ws(_text_content(node))
             if title:
-                return title
+                metadata.title = title
 
-    return None
-
-
-def _extract_canonical_url(root: _Node) -> str | None:
-    """Extract canonical page URL from link/meta tags."""
-    for node in _iter_nodes(root):
-        if node.tag == "link" and node.attrs.get("rel", "").lower() == "canonical":
-            href = node.attrs.get("href", "").strip()
-            if href:
-                return href
-
-    for node in _iter_nodes(root):
-        if node.tag != "meta":
-            continue
-
-        prop = node.attrs.get("property", "")
-        if prop in {"og:url", "twitter:url"}:
-            content = node.attrs.get("content", "").strip()
-            if content:
-                return content
-
-    return None
-
-
-def _extract_description(root: _Node) -> str | None:
-    """Extract meta description content from head tags."""
-    for node in _iter_nodes(root):
-        if node.tag != "meta":
-            continue
-
-        name = node.attrs.get("name", "")
-        prop = node.attrs.get("property", "")
-        if name == "description" or prop == "og:description":
-            content = _normalize_ws(node.attrs.get("content", ""))
-            if content:
-                return content
-
-    return None
-
-
-def _extract_keywords(root: _Node) -> list[str] | None:
-    """Extract comma-separated keywords from metadata."""
-    for node in _iter_nodes(root):
-        if node.tag != "meta":
-            continue
-
-        name = node.attrs.get("name", "").lower()
-        item_prop = node.attrs.get("itemprop", "").lower()
-        if name != "keywords" and item_prop != "keywords":
-            continue
-
-        content = node.attrs.get("content", "")
-        if not content:
-            continue
-
-        keywords = [_normalize_ws(part) for part in content.split(",")]
-        values = [keyword for keyword in keywords if keyword]
-        if values:
-            return values
-
-    return None
+    if metadata.canonical_url is None:
+        metadata.canonical_url = fallback_canonical_url
+    return metadata
 
 
 def _extract_slug(url: str) -> str:
@@ -693,8 +688,45 @@ def _build_sections_and_references(
     return sections, references
 
 
+def _script_node_text(node: _Node) -> str:
+    fragments: list[str] = []
+    for child in node.children:
+        if isinstance(child, str):
+            fragments.append(child)
+            continue
+        fragments.append(_script_node_text(child))
+    return "".join(fragments)
+
+
+def _iter_next_push_markdown_payloads(root: _Node) -> Iterable[str]:
+    for node in _iter_nodes(root):
+        if node.tag != "script":
+            continue
+
+        script_text = _script_node_text(node)
+        if "self.__next_f.push(" not in script_text:
+            continue
+
+        for raw_payload in _NEXT_PUSH_PAYLOAD_RE.findall(script_text):
+            try:
+                decoded_payload = json.loads(f'"{raw_payload}"')
+            except json.JSONDecodeError:
+                decoded_payload = raw_payload
+
+            if "\\n" in decoded_payload or '\\"' in decoded_payload:
+                try:
+                    decoded_payload = json.loads(f'"{decoded_payload}"')
+                except json.JSONDecodeError:
+                    decoded_payload = decoded_payload.replace('\\"', '"').replace(
+                        "\\n", "\n"
+                    )
+
+            if "## " in decoded_payload and "![" in decoded_payload:
+                yield decoded_payload
+
+
 def _attach_markdown_media_from_payload(
-    html: str,
+    root: _Node,
     sections: list[Section],
     *,
     base_url: str,
@@ -702,69 +734,66 @@ def _attach_markdown_media_from_payload(
     if not sections:
         return
 
-    decoded = html.replace('\\"', '"').replace("\\n", "\n")
-    if "## " not in decoded or "![" not in decoded:
-        return
+    for payload in _iter_next_push_markdown_payloads(root):
+        current_section: Section | None = None
+        current_subsection: Section | None = None
+        section_cursor = -1
+        subsection_cursor = -1
 
-    current_section: Section | None = None
-    current_subsection: Section | None = None
-    section_cursor = -1
-    subsection_cursor = -1
-
-    lines = decoded.splitlines()
-    for index, line in enumerate(lines):
-        stripped = line.strip()
-        if not stripped:
-            continue
-
-        if stripped.startswith("## "):
-            title = _normalize_ws(stripped[3:])
-            current_section, section_cursor = _match_section_by_title(
-                sections,
-                title,
-                start_index=section_cursor + 1,
-            )
-            current_subsection = None
-            subsection_cursor = -1
-            continue
-
-        if stripped.startswith("### "):
-            if current_section is None:
+        lines = payload.splitlines()
+        for index, line in enumerate(lines):
+            stripped = line.strip()
+            if not stripped:
                 continue
 
-            title = _normalize_ws(stripped[4:])
-            current_subsection, subsection_cursor = _match_section_by_title(
-                current_section.subsections,
-                title,
-                start_index=subsection_cursor + 1,
+            if stripped.startswith("## "):
+                title = _normalize_ws(stripped[3:])
+                current_section, section_cursor = _match_section_by_title(
+                    sections,
+                    title,
+                    start_index=section_cursor + 1,
+                )
+                current_subsection = None
+                subsection_cursor = -1
+                continue
+
+            if stripped.startswith("### "):
+                if current_section is None:
+                    continue
+
+                title = _normalize_ws(stripped[4:])
+                current_subsection, subsection_cursor = _match_section_by_title(
+                    current_section.subsections,
+                    title,
+                    start_index=subsection_cursor + 1,
+                )
+                continue
+
+            parsed_image = _parse_markdown_image(stripped)
+            if parsed_image is None:
+                continue
+
+            target_section = current_subsection or current_section
+            if target_section is None:
+                continue
+
+            alt_value, link_value = parsed_image
+            raw_url = _extract_markdown_image_url(link_value)
+            if not raw_url:
+                continue
+
+            image_url = _normalize_image_url(raw_url, base_url)
+            alt_text = _normalize_ws(alt_value) or None
+            caption = _extract_markdown_caption(lines, start_index=index + 1)
+
+            _append_section_media(
+                target_section,
+                _FigureData(
+                    image_url=image_url,
+                    caption=caption,
+                    alt_text=alt_text,
+                ),
             )
-            continue
-
-        parsed_image = _parse_markdown_image(stripped)
-        if parsed_image is None:
-            continue
-
-        target_section = current_subsection or current_section
-        if target_section is None:
-            continue
-
-        alt_value, link_value = parsed_image
-        raw_url = _extract_markdown_image_url(link_value)
-        if not raw_url:
-            continue
-
-        image_url = _normalize_image_url(raw_url, base_url)
-        alt_text = _normalize_ws(alt_value) or None
-        caption = _extract_markdown_caption(lines, start_index=index + 1)
-
-        _append_section_media(
-            target_section,
-            _FigureData(
-                image_url=image_url,
-                caption=caption,
-                alt_text=alt_text,
-            ),
-        )
 
 
 def _match_section_by_title(

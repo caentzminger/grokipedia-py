@@ -183,6 +183,60 @@ def test_from_html_parses_embedded_markdown_subsection_media() -> None:
     assert subsection.media[1].caption == "Paren detail caption"
 
 
+def test_from_html_parses_escaped_markdown_payload_with_angle_url_and_blank_line_caption() -> (
+    None
+):
+    html = """
+    <html>
+      <body>
+        <article class='text-[16px]'>
+          <h1 id='sample'>Sample Page</h1>
+          <h2 id='overview'>Overview</h2>
+          <h3 id='details'>Details</h3>
+          <span data-tts-block='true'>Details text.</span>
+        </article>
+        <script>
+          self.__next_f.push([1,"\\n## Overview\\n\\n### Details\\n\\n![Escaped \\\\\\"detail\\\\\\"](<https://assets.grokipedia.com/wiki/images/details-(2026).jpg>)\\n\\n*Escaped detail caption*\\n"]);
+        </script>
+      </body>
+    </html>
+    """
+
+    page = from_html(html, source_url="https://grokipedia.com/page/sample")
+
+    subsection = page.sections[0].subsections[0]
+    assert len(subsection.media) == 1
+    assert subsection.media[0].image_url.endswith("details-(2026).jpg")
+    assert subsection.media[0].alt_text == 'Escaped "detail"'
+    assert subsection.media[0].caption == "Escaped detail caption"
+
+
+def test_from_html_ignores_malformed_next_push_payloads() -> None:
+    html = """
+    <html>
+      <body>
+        <article class='text-[16px]'>
+          <h1 id='sample'>Sample Page</h1>
+          <h2 id='overview'>Overview</h2>
+          <h3 id='details'>Details</h3>
+          <span data-tts-block='true'>Details text.</span>
+        </article>
+        <script>
+          self.__next_f.push([1,"\\n## Overview\\n\\n### Details\\n\\n![Good](https://assets.grokipedia.com/wiki/images/good.jpg)\\n*Good caption*\\n"]);
+          self.__next_f.push([1,"\\q not valid json escape"]);
+        </script>
+      </body>
+    </html>
+    """
+
+    page = from_html(html, source_url="https://grokipedia.com/page/sample")
+
+    subsection = page.sections[0].subsections[0]
+    assert len(subsection.media) == 1
+    assert subsection.media[0].image_url.endswith("good.jpg")
+    assert subsection.media[0].caption == "Good caption"
+
+
 def test_page_markdown_renders_structured_content() -> None:
     html = """
     <html>
