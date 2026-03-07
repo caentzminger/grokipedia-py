@@ -11,6 +11,7 @@ pip install grokipedia-py
 ```bash
 uv pip install https://github.com/caentzminger/grokipedia-py.git
 uv add "grokipedia-py @ git+https://github.com/caentzminger/grokipedia-py.git"
+uv tool install grokipedia-py
 ```
 
 ## Quickstart
@@ -76,6 +77,57 @@ results = search("hello world", respect_robots=False)
 
 As of February 18, 2026, `https://grokipedia.com/robots.txt` disallows `/api/`, and `/search` is mostly client-rendered HTML.
 
+## CLI
+
+The package also includes a CLI:
+
+Install it as a tool using `uv`:
+
+```bash
+uv tool install -U grokipedia-py
+```
+
+Or give it a try using:
+
+```bash
+uvx grokipedia-py --help
+```
+
+More examples:
+
+```bash
+uvx grokipedia-py --timeout 5 --user-agent "grokipedia-py/cli" search "hello world"
+grokipedia-py search "hello world" --limit 5 --no-respect-robots
+grokipedia-py page '"Hello, World!" program'
+grokipedia-py page '"Hello, World!" program' --markdown
+grokipedia-py from-url "https://grokipedia.com/page/13065923" --json
+grokipedia-py from-url "https://grokipedia.com/page/13065923" --markdown
+```
+
+Published package usage:
+
+```bash
+uvx grokipedia-py --help
+uvx grokipedia-py search "hello world" --limit 5 --no-respect-robots
+```
+
+Installed convenience commands:
+
+```bash
+uv run grokipedia --help
+python -m grokipedia --help
+```
+
+The published package name is `grokipedia-py`. It also installs a `grokipedia`
+command for local convenience, but the supported published `uvx` invocation is
+`uvx grokipedia-py`.
+
+`page` and `from-url` support three output modes:
+
+- default text output: title, URL, and intro text when present
+- `--json`: structured page JSON
+- `--markdown`: `Page.markdown` output
+
 Use class-based API with sitemap manifest caching:
 
 ```python
@@ -114,6 +166,18 @@ just typecheck
 just test
 just ci
 ```
+
+## Publishing
+
+GitHub Actions publishing is configured in
+[`publish.yml`](.github/workflows/publish.yml) using `uv` and PyPI trusted
+publishing.
+
+- Push a version tag like `v0.2.0` to trigger the publish workflow.
+- The workflow builds the wheel and sdist with `uv build`.
+- It smoke-tests both artifacts before publishing.
+- The GitHub repository must be added as a trusted publisher for the
+  `grokipedia-py` project on PyPI.
 
 ## Robots behavior
 

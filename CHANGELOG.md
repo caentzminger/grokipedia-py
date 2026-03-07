@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-03-07
+
+### Added
+
+- Zero-dependency CLI entrypoints for `grokipedia-py`, `grokipedia`, and `python -m grokipedia`.
+- CLI support for text, JSON, and Markdown page output.
+- Global CLI `--timeout` and `--user-agent` options.
+- GitHub Actions publishing workflow for PyPI using `uv build`, smoke tests, and trusted publishing.
+
+### Changed
+
+- README CLI and publishing guidance now reflects the `uvx grokipedia-py` release flow.
+- CLI tests now cover entrypoints, exit codes, packaging metadata, and output-mode behavior.
+
 ## [0.1.1] - 2026-02-18
 
 ### Added

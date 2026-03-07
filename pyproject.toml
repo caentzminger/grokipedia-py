@@ -1,6 +1,6 @@
 [project]
 name = "grokipedia-py"
-version = "0.1.1"
+version = "0.2.0"
 description = "Structured Grokipedia page parser with robots-aware fetching."
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -31,6 +31,10 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = []
+
+[project.scripts]
+grokipedia-py = "grokipedia.cli:main"
+grokipedia = "grokipedia.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/caentzminger/grokipedia-py"

@@ -1,0 +1,45 @@
+name: Publish
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/grokipedia-py/
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      # https://docs.astral.sh/uv/guides/integration/github/
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.10.9"
+          enable-cache: true
+
+      - name: Install Python
+        run: uv python install 3.13
+
+      # This project builds a pure-Python universal wheel (`py3-none-any`) and
+      # an sdist, so one Python is enough for the build job. Cross-version
+      # compatibility is covered in the matrix CI workflow.
+      - name: Build distributions
+        run: uv build
+
+      - name: Smoke test wheel
+        run: uv run --isolated --no-project --python 3.13 --with dist/*.whl tests/package_smoke.py
+
+      - name: Smoke test sdist
+        run: uv run --isolated --no-project --python 3.13 --with dist/*.tar.gz tests/package_smoke.py
+
+      - name: Publish to PyPI
+        run: uv publish
