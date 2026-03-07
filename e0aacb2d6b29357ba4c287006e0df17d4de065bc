@@ -1,0 +1,62 @@
+pyproject.toml
+  8743c22f84355bf5 3,35-37
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.8",
+  "base_commit_sha": "e0aacb2d6b29357ba4c287006e0df17d4de065bc",
+  "prompts": {
+    "8743c22f84355bf5": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019cca38-7b9d-70e2-96c5-6f5c24529fd3",
+        "model": "gpt-5.4"
+      },
+      "human_author": "caentzminger <112503481+caentzminger@users.noreply.github.com>",
+      "messages": [],
+      "total_additions": 7,
+      "total_deletions": 3,
+      "accepted_lines": 6,
+      "overriden_lines": 0
+    },
+    "defcffdbede78728": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019cca3a-4918-71a1-95e3-f18672ab8db5",
+        "model": "unknown"
+      },
+      "human_author": "caentzminger <112503481+caentzminger@users.noreply.github.com>",
+      "messages": [],
+      "total_additions": 167,
+      "total_deletions": 0,
+      "accepted_lines": 167,
+      "overriden_lines": 0
+    },
+    "e104a81487a4149e": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_33ad84008ffeqwCiIfPOeUphbL",
+        "model": "opencode-go/glm-5"
+      },
+      "human_author": "caentzminger <112503481+caentzminger@users.noreply.github.com>",
+      "messages": [],
+      "total_additions": 229,
+      "total_deletions": 0,
+      "accepted_lines": 229,
+      "overriden_lines": 0
+    },
+    "fc9ed1b5895fc7a6": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_33b287864ffeMTiabhy8WUgLcW",
+        "model": "openai/gpt-5.2-codex"
+      },
+      "human_author": "caentzminger <112503481+caentzminger@users.noreply.github.com>",
+      "messages": [],
+      "total_additions": 139,
+      "total_deletions": 55,
+      "accepted_lines": 84,
+      "overriden_lines": 0
+    }
+  }
+}
