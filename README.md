@@ -122,6 +122,31 @@ The published package name is `grokipedia-py`. It also installs a `grokipedia`
 command for local convenience, but the supported published `uvx` invocation is
 `uvx grokipedia-py`.
 
+## Docker
+
+The package is also available as a Docker image from GitHub Container Registry:
+
+```bash
+docker pull ghcr.io/caentzminger/grokipedia-py:latest
+docker run --rm ghcr.io/caentzminger/grokipedia-py:latest --help
+```
+
+Examples:
+
+```bash
+docker run --rm ghcr.io/caentzminger/grokipedia-py:latest search "hello world" --limit 5
+docker run --rm ghcr.io/caentzminger/grokipedia-py:latest page '"Hello, World!" program'
+docker run --rm ghcr.io/caentzminger/grokipedia-py:latest from-url "https://grokipedia.com/page/13065923" --json
+```
+
+Available tags:
+
+- `latest` - latest build from main branch
+- `v0.2.0`, `v0.2`, `v0` - semantic version tags
+- `sha-abc123` - short commit SHA
+
+Multi-platform images are available for `linux/amd64` and `linux/arm64`.
+
 `page` and `from-url` support three output modes:
 
 - default text output: title, URL, and intro text when present
@@ -169,15 +194,26 @@ just ci
 
 ## Publishing
 
-GitHub Actions publishing is configured in
-[`publish.yml`](.github/workflows/publish.yml) using `uv` and PyPI trusted
-publishing.
+GitHub Actions publishing is configured for both PyPI and Docker:
+
+### PyPI
+
+[`publish.yml`](.github/workflows/publish.yml) uses `uv` and PyPI trusted publishing.
 
 - Push a version tag like `v0.2.0` to trigger the publish workflow.
 - The workflow builds the wheel and sdist with `uv build`.
 - It smoke-tests both artifacts before publishing.
 - The GitHub repository must be added as a trusted publisher for the
   `grokipedia-py` project on PyPI.
+
+### Docker
+
+[`docker.yml`](.github/workflows/docker.yml) builds and pushes Docker images to GitHub Container Registry.
+
+- Triggered on pushes to main branch, version tags, or manually via workflow_dispatch.
+- Builds multi-platform images (linux/amd64, linux/arm64).
+- Includes build attestations for provenance verification.
+- Runs tests before building to ensure image quality.
 
 ## Robots behavior
 

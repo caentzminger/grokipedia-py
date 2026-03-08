@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-03-07
+
+### Added
+
+- Docker support with multi-stage builds for minimal production images.
+- GitHub Actions workflow for automated Docker image builds and pushes to GitHub Container Registry.
+- Multi-platform Docker images supporting linux/amd64 and linux/arm64.
+- Docker image attestations for build provenance verification.
+
+### Changed
+
+- Docker workflow includes test execution before image builds to ensure quality.
+- README now includes Docker usage examples and installation instructions.
+
 ## [0.2.0] - 2026-03-07
 
 ### Added
