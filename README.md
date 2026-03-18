@@ -77,6 +77,23 @@ results = search("hello world", respect_robots=False)
 
 As of February 18, 2026, `https://grokipedia.com/robots.txt` disallows `/api/`, and `/search` is mostly client-rendered HTML.
 
+Fetch edit history for a page:
+
+```python
+from grokipedia import edit_history
+
+history = edit_history(
+    '"Hello, World!" program',
+    respect_robots=False,
+    limit=10,
+)
+
+print(history.total_count)
+print(history.has_more)
+print(history.edit_requests[0].status)
+print(history.edit_requests[0].summary)
+```
+
 ## CLI
 
 The package also includes a CLI:
@@ -100,6 +117,9 @@ uvx grokipedia-py --timeout 5 --user-agent "grokipedia-py/cli" search "hello wor
 grokipedia-py search "hello world" --limit 5 --no-respect-robots
 grokipedia-py page '"Hello, World!" program'
 grokipedia-py page '"Hello, World!" program' --markdown
+grokipedia-py edit-history '"Hello, World!" program' --no-respect-robots
+grokipedia-py edit-history '"Hello, World!" program' --all --json --no-respect-robots
+grokipedia-py edit-history '"Hello, World!" program' --debug --no-respect-robots
 grokipedia-py from-url "https://grokipedia.com/page/13065923" --json
 grokipedia-py from-url "https://grokipedia.com/page/13065923" --markdown
 ```
@@ -153,6 +173,13 @@ Multi-platform images are available for `linux/amd64` and `linux/arm64`.
 - `--json`: structured page JSON
 - `--markdown`: `Page.markdown` output
 
+`edit-history` supports:
+
+- default text output: status, type, timestamp, optional section title, and summary
+- `--json`: structured edit-history JSON
+- `--all`: page through the full edit history using `--limit` as the batch size
+- `--debug`: enable `grokipedia` debug logging
+
 Use class-based API with sitemap manifest caching:
 
 ```python
@@ -161,6 +188,7 @@ from grokipedia import Grokipedia
 wiki = Grokipedia(verbose=True)
 result = wiki.page("The C Programming Language")
 matches = wiki.search("programming language")
+history = wiki.edit_history('"Hello, World!" program', respect_robots=False)
 
 # Lazy sitemap lookup + cached child sitemap manifests.
 url = wiki.find_page_url('"Hello, World!" program')
@@ -189,7 +217,18 @@ just fmt-py
 just lint-py
 just typecheck
 just test
+just typecheck-matrix
+just test-matrix
+just check-matrix
 just ci
+```
+
+Matrix-friendly one-off commands are also available:
+
+```bash
+just typecheck-py 3.10
+just test-py 3.11
+just check-py 3.12
 ```
 
 ## Publishing
@@ -217,10 +256,11 @@ GitHub Actions publishing is configured for both PyPI and Docker:
 
 ## Robots behavior
 
-`from_url()` enforces `robots.txt` by default.
+`from_url()` and `edit_history()` enforce `robots.txt` by default.
 
 - `respect_robots=True` (default): validate `robots.txt` before page fetch.
 - `search()` first tries `/api/full-text-search` and falls back to `/search` HTML parsing.
+- `edit_history()` uses `/api/list-edit-requests-by-slug`, so it is blocked by the live `robots.txt` policy unless you opt out.
 - `allow_robots_override=False` (default): strict mode.
 - if `robots.txt` is unavailable or malformed, the library fails closed with `RobotsUnavailableError`.
 - if URL is disallowed, it raises `RobotsDisallowedError`.
@@ -247,11 +287,32 @@ You can bypass robots enforcement by setting either:
 
 `Page` also includes:
 
-- `lede_text` (alias of `intro_text`)
-- `lead_media` (alias of `lead_figure`)
 - `markdown`
 - `to_dict()` / `to_json()`
 - `from_dict()` / `from_json()`
+
+`edit_history()` returns `EditHistoryPage` with:
+
+- `edit_requests` (`EditHistoryEntry` list)
+- `total_count`
+- `has_more`
+
+Each `EditHistoryEntry` includes:
+
+- `id`
+- `slug`
+- `user_id`
+- `status`
+- `type`
+- `summary`
+- `original_content`
+- `proposed_content`
+- `section_title`
+- `created_at_utc`
+- `updated_at_utc`
+- `upvote_count`
+- `downvote_count`
+- `review_reason`
 
 ## Exceptions
 

@@ -5,6 +5,7 @@ import logging
 from .client import (
     DEFAULT_SITEMAP_INDEX_URL,
     Grokipedia,
+    edit_history,
     from_html,
     from_url,
     page,
@@ -21,6 +22,8 @@ from .errors import (
 )
 from .fetch import FetchResponse, Fetcher, UrllibFetcher
 from .models import (
+    EditHistoryEntry,
+    EditHistoryPage,
     InfoboxField,
     LeadFigure,
     Page,
@@ -29,8 +32,6 @@ from .models import (
     Section,
     SectionMedia,
 )
-
-SITEMAP_INDEX = DEFAULT_SITEMAP_INDEX_URL
 
 logging.getLogger(__name__).addHandler(logging.NullHandler())
 
@@ -41,6 +42,8 @@ __all__ = [
     "Grokipedia",
     "GrokipediaError",
     "HttpStatusError",
+    "EditHistoryEntry",
+    "EditHistoryPage",
     "InfoboxField",
     "LeadFigure",
     "Page",
@@ -50,10 +53,11 @@ __all__ = [
     "Reference",
     "RobotsDisallowedError",
     "RobotsUnavailableError",
-    "SITEMAP_INDEX",
+    "DEFAULT_SITEMAP_INDEX_URL",
     "Section",
     "SectionMedia",
     "UrllibFetcher",
+    "edit_history",
     "from_html",
     "from_url",
     "page",

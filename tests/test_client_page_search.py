@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from typing import Mapping
 
 import pytest
 
-from grokipedia import from_url, page, search
+from grokipedia import Grokipedia, edit_history, from_url, page, search
 from grokipedia.client import DEFAULT_USER_AGENT
+from grokipedia.errors import HttpStatusError, RobotsDisallowedError
 from grokipedia.fetch import FetchResponse
+from grokipedia._urls import edit_history_url_from_slug, slug_from_title
 
 
 def _robots_response(url: str, *, disallow_api: bool) -> FetchResponse:
@@ -164,6 +167,68 @@ class RichPageFetcher:
         )
 
 
+class EditHistoryFetcher:
+    def __init__(
+        self,
+        *,
+        robots_disallow_api: bool = True,
+        history_status: int = 200,
+        history_json: str | None = None,
+    ) -> None:
+        self.robots_disallow_api = robots_disallow_api
+        self.history_status = history_status
+        self.history_json = history_json or json.dumps(
+            {
+                "editRequests": [
+                    {
+                        "id": "edit-1",
+                        "slug": "Sample_Page",
+                        "userId": "user-1",
+                        "status": "EDIT_REQUEST_STATUS_APPROVED",
+                        "type": "EDIT_REQUEST_TYPE_FIX_TYPO",
+                        "summary": "Fix typo in lead",
+                        "originalContent": " teh",
+                        "proposedContent": " the",
+                        "sectionTitle": "Overview",
+                        "createdAt": 1767558005,
+                        "updatedAt": 1767558074,
+                        "upvoteCount": 3,
+                        "downvoteCount": 1,
+                        "reviewReason": "Looks good.",
+                    }
+                ],
+                "totalCount": 1,
+                "hasMore": False,
+            }
+        )
+        self.request_urls: list[str] = []
+        self.request_headers: list[dict[str, str]] = []
+
+    def fetch_text(
+        self, url: str, *, timeout: float, headers: Mapping[str, str]
+    ) -> FetchResponse:
+        self.request_urls.append(url)
+        self.request_headers.append(dict(headers))
+
+        if url.endswith("/robots.txt"):
+            return _robots_response(url, disallow_api=self.robots_disallow_api)
+
+        if "/api/list-edit-requests-by-slug?" in url:
+            return FetchResponse(
+                url=url,
+                status_code=self.history_status,
+                headers={"content-type": "application/json"},
+                text=self.history_json,
+            )
+
+        return FetchResponse(
+            url=url,
+            status_code=404,
+            headers={"content-type": "text/plain"},
+            text="missing",
+        )
+
+
 def test_page_builds_expected_title_url() -> None:
     fetcher = RecordingFetcher()
 
@@ -299,3 +364,91 @@ def test_from_url_parses_structured_page_fields() -> None:
     assert page_obj.sections[0].subsections[0].title == "Details"
     assert page_obj.sections[0].subsections[0].media[0].caption == "Detail caption"
     assert page_obj.metadata.keywords == ["sample", "testing"]
+
+
+def test_edit_history_url_builds_expected_query() -> None:
+    assert (
+        edit_history_url_from_slug(
+            slug_from_title('"Hello, World!" program'),
+            limit=5,
+            offset=10,
+            base_url="https://grokipedia.com/",
+        )
+        == "https://grokipedia.com/api/list-edit-requests-by-slug?slug=%22Hello%2C_World%21%22_program&limit=5&offset=10"
+    )
+
+
+def test_edit_history_rejects_empty_title() -> None:
+    with pytest.raises(ValueError):
+        edit_history("   ", respect_robots=False)
+
+
+def test_edit_history_fetches_and_parses_payload() -> None:
+    fetcher = EditHistoryFetcher(robots_disallow_api=False)
+
+    history = edit_history(
+        "Sample Page",
+        limit=5,
+        offset=10,
+        fetcher=fetcher,
+        user_agent="grokipedia-py-test",
+    )
+
+    assert (
+        fetcher.request_urls[1]
+        == "https://grokipedia.com/api/list-edit-requests-by-slug?slug=Sample_Page&limit=5&offset=10"
+    )
+    assert history.total_count == 1
+    assert history.has_more is False
+    assert history.edit_requests[0].id == "edit-1"
+    assert history.edit_requests[0].section_title == "Overview"
+    assert history.edit_requests[0].created_at_utc == datetime(
+        2026, 1, 4, 20, 20, 5, tzinfo=timezone.utc
+    )
+
+
+def test_edit_history_is_blocked_by_robots_by_default() -> None:
+    fetcher = EditHistoryFetcher(robots_disallow_api=True)
+
+    with pytest.raises(RobotsDisallowedError):
+        edit_history("Sample Page", fetcher=fetcher)
+
+    assert fetcher.request_urls == ["https://grokipedia.com/robots.txt"]
+
+
+def test_edit_history_skips_robots_when_respect_robots_false() -> None:
+    fetcher = EditHistoryFetcher(robots_disallow_api=True)
+
+    history = edit_history("Sample Page", fetcher=fetcher, respect_robots=False)
+
+    assert history.total_count == 1
+    assert all(not url.endswith("/robots.txt") for url in fetcher.request_urls)
+
+
+def test_edit_history_raises_http_status_error_on_api_failure() -> None:
+    fetcher = EditHistoryFetcher(
+        robots_disallow_api=False,
+        history_status=503,
+        history_json="unavailable",
+    )
+
+    with pytest.raises(HttpStatusError):
+        edit_history("Sample Page", fetcher=fetcher)
+
+
+def test_grokipedia_edit_history_uses_instance_defaults() -> None:
+    fetcher = EditHistoryFetcher(robots_disallow_api=True)
+    wiki = Grokipedia(
+        fetcher=fetcher,
+        respect_robots=False,
+        user_agent="grokipedia-py-test",
+    )
+
+    history = wiki.edit_history("Sample Page", limit=2, offset=4)
+
+    assert history.total_count == 1
+    assert fetcher.request_headers[0]["User-Agent"] == "grokipedia-py-test"
+    assert (
+        fetcher.request_urls[0]
+        == "https://grokipedia.com/api/list-edit-requests-by-slug?slug=Sample_Page&limit=2&offset=4"
+    )

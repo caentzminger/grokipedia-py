@@ -3,7 +3,7 @@
 ## Project Structure & Module Organization
 
 - Core package code lives in `src/grokipedia/`.
-- Main modules are split by concern: `client.py` (public entry points), `fetch.py`/`robots.py` (network and robots handling), `sitemaps.py` (cached sitemap index/lookup), `parser.py` (HTML parsing), `models.py` (typed data models), `_urls.py` (URL/user-agent helpers), `_types.py` (typing protocols), and `errors.py` (exception hierarchy).
+- Main modules are split by concern: `client.py` (public entry points), `fetch.py`/`robots.py` (network and robots handling), `sitemaps.py` (cached sitemap index/lookup), `parser.py` (HTML parsing), `history.py` (edit-history payload parsing), `models.py` (typed data models), `_urls.py` (URL/user-agent helpers), `_types.py` (typing protocols), and `errors.py` (exception hierarchy).
 - Tests are in `tests/`, with reusable HTML fixtures in `tests/fixtures/`.
 - Project metadata and tooling config live in `pyproject.toml`; task shortcuts live in `Justfile`.
 
@@ -15,6 +15,9 @@
 - `just lint-fix-py`: auto-fix lint issues when possible.
 - `just fmt-py`: format Python code with `ruff format`.
 - `just typecheck`: run static checks with `ty`.
+- `just typecheck-matrix`: run `ty` across the supported Python version matrix.
+- `just test-matrix`: run `pytest` across the supported Python version matrix.
+- `just check-matrix`: run format-check, lint, typecheck, and tests across the supported Python version matrix.
 - `just fmt-all`: run Python and Markdown formatting.
 
 ## Coding Style & Naming Conventions
@@ -24,6 +27,7 @@
 - Follow existing naming patterns: `snake_case` for functions/modules, `PascalCase` for data models/classes, `UPPER_SNAKE_CASE` for constants.
 - Keep parsing logic deterministic and side-effect light; prefer small pure helpers.
 - Run `just fmt-py just lint-py just typecheck` before opening a PR.
+- When debugging CI or Python-version-specific typing issues, prefer the matrix commands in `Justfile`.
 
 ## Testing Guidelines
 
@@ -40,4 +44,4 @@
   - a short summary of behavior changes,
   - linked issue/context when applicable,
   - test evidence (e.g., `just test` output),
-  - notes on parser edge cases or robots-related impacts.
+  - notes on parser edge cases, robots-related impacts, or Python-matrix-specific behavior.
