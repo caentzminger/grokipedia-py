@@ -4,13 +4,20 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from ._urls import page_url_from_slug, resolve_base_url, resolve_user_agent
+from ._urls import (
+    edit_history_url_from_slug,
+    page_url_from_slug,
+    resolve_base_url,
+    resolve_user_agent,
+    slug_from_title,
+)
 from .errors import (
     HttpStatusError,
     PageNotFoundError,
 )
 from .fetch import Fetcher, FetchResponse, UrllibFetcher
-from .models import Page
+from .history import parse_edit_history_json
+from .models import EditHistoryPage, Page
 from .parser import parse_page_html
 from .robots import assert_allowed_by_robots
 from .search import run_search
@@ -174,8 +181,22 @@ def from_html(html: str, *, source_url: str | None = None) -> Page:
 
 
 def _page_url_from_title(title: str, *, base_url: str) -> str:
-    normalized_title = "_".join(title.strip().split())
-    return page_url_from_slug(normalized_title, base_url=base_url)
+    return page_url_from_slug(slug_from_title(title), base_url=base_url)
+
+
+def _edit_history_url_from_title(
+    title: str,
+    *,
+    limit: int,
+    offset: int,
+    base_url: str,
+) -> str:
+    return edit_history_url_from_slug(
+        slug_from_title(title),
+        limit=limit,
+        offset=offset,
+        base_url=base_url,
+    )
 
 
 def page(
@@ -223,6 +244,42 @@ def search(
         fetch_text=_fetch_text,
         logger=logger,
     )
+
+
+def edit_history(
+    title: str,
+    *,
+    limit: int = 25,
+    offset: int = 0,
+    timeout: float = 10.0,
+    respect_robots: bool = True,
+    allow_robots_override: bool = False,
+    user_agent: str | None = None,
+    fetcher: Fetcher | None = None,
+    base_url: str = DEFAULT_BASE_URL,
+) -> EditHistoryPage:
+    """Fetch a page's edit history from Grokipedia's history API."""
+    resolved_fetcher = fetcher or UrllibFetcher()
+    resolved_user_agent = resolve_user_agent(
+        user_agent,
+        default_user_agent=DEFAULT_USER_AGENT,
+    )
+
+    response = _fetch_text(
+        _edit_history_url_from_title(
+            title,
+            limit=limit,
+            offset=offset,
+            base_url=base_url,
+        ),
+        timeout=timeout,
+        respect_robots=respect_robots,
+        allow_robots_override=allow_robots_override,
+        user_agent=resolved_user_agent,
+        fetcher=resolved_fetcher,
+        not_found_is_page=False,
+    )
+    return parse_edit_history_json(response.text)
 
 
 class Grokipedia:
@@ -349,6 +406,36 @@ class Grokipedia:
 
         return search(
             search_term_string,
+            timeout=options.timeout,
+            respect_robots=options.respect_robots,
+            allow_robots_override=options.allow_robots_override,
+            user_agent=options.user_agent,
+            fetcher=self.fetcher,
+            base_url=self.base_url,
+        )
+
+    def edit_history(
+        self,
+        title: str,
+        *,
+        limit: int = 25,
+        offset: int = 0,
+        timeout: float | None = None,
+        respect_robots: bool | None = None,
+        allow_robots_override: bool | None = None,
+        user_agent: str | None = None,
+    ) -> EditHistoryPage:
+        options = self._resolve_call_options(
+            timeout=timeout,
+            respect_robots=respect_robots,
+            allow_robots_override=allow_robots_override,
+            user_agent=user_agent,
+        )
+
+        return edit_history(
+            title,
+            limit=limit,
+            offset=offset,
             timeout=options.timeout,
             respect_robots=options.respect_robots,
             allow_robots_override=options.allow_robots_override,

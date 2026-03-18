@@ -247,8 +247,6 @@ You can bypass robots enforcement by setting either:
 
 `Page` also includes:
 
-- `lede_text` (alias of `intro_text`)
-- `lead_media` (alias of `lead_figure`)
 - `markdown`
 - `to_dict()` / `to_json()`
 - `from_dict()` / `from_json()`

@@ -4,11 +4,20 @@ import argparse
 import sys
 from collections.abc import Sequence
 from pathlib import Path
-from typing import NoReturn
+from typing import NoReturn, TypedDict
 
-from .client import from_url, page, search
+from .client import _configure_verbose_logging, edit_history, from_url, page, search
 from .errors import GrokipediaError
-from .models import Page
+from .models import EditHistoryPage, Page
+
+
+class _EditHistoryKwargs(TypedDict):
+    title: str
+    limit: int
+    offset: int
+    respect_robots: bool
+    timeout: float
+    user_agent: str | None
 
 
 class _ParserExit(Exception):
@@ -51,6 +60,11 @@ def _add_shared_arguments(parser: argparse.ArgumentParser) -> None:
         help="Network timeout in seconds",
     )
     parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable debug logging",
+    )
+    parser.add_argument(
         "--user-agent",
         help="Override the HTTP User-Agent header",
     )
@@ -73,6 +87,40 @@ def _build_parser(*, prog: str | None = None) -> argparse.ArgumentParser:
         help="Maximum number of results to print",
     )
     search_parser.add_argument(
+        "--no-respect-robots",
+        action="store_true",
+        help="Skip robots.txt validation",
+    )
+
+    edit_history_parser = subparsers.add_parser(
+        "edit-history",
+        help="Fetch edit history for a page by title",
+    )
+    _add_shared_arguments(edit_history_parser)
+    edit_history_parser.add_argument("title", help="Page title")
+    edit_history_parser.add_argument(
+        "--limit",
+        type=_non_negative_int,
+        default=25,
+        help="Maximum number of history entries to request",
+    )
+    edit_history_parser.add_argument(
+        "--offset",
+        type=_non_negative_int,
+        default=0,
+        help="History pagination offset",
+    )
+    edit_history_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the edit history payload as JSON",
+    )
+    edit_history_parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Fetch all history entries, paging with --limit as the batch size",
+    )
+    edit_history_parser.add_argument(
         "--no-respect-robots",
         action="store_true",
         help="Skip robots.txt validation",
@@ -148,6 +196,67 @@ def _run_search(args: argparse.Namespace) -> None:
         print(result)
 
 
+def _print_edit_history(history: EditHistoryPage, *, as_json: bool) -> None:
+    if as_json:
+        print(history.to_json(indent=2))
+        return
+
+    for index, entry in enumerate(history.edit_requests):
+        if index:
+            print()
+        print(entry.status)
+        print(entry.type)
+        print(entry.created_at_utc.isoformat().replace("+00:00", "Z"))
+        if entry.section_title:
+            print(entry.section_title)
+        print(entry.summary)
+
+
+def _edit_history_kwargs(
+    args: argparse.Namespace,
+    *,
+    offset: int | None = None,
+) -> _EditHistoryKwargs:
+    return {
+        "title": args.title,
+        "limit": args.limit,
+        "offset": args.offset if offset is None else offset,
+        "respect_robots": not args.no_respect_robots,
+        "timeout": args.timeout,
+        "user_agent": args.user_agent,
+    }
+
+
+def _fetch_all_edit_history(args: argparse.Namespace) -> EditHistoryPage:
+    if args.limit <= 0:
+        raise ValueError("--limit must be >= 1 when using --all")
+
+    offset = args.offset
+    combined = EditHistoryPage(edit_requests=[], total_count=0, has_more=False)
+
+    while True:
+        history = edit_history(**_edit_history_kwargs(args, offset=offset))
+        combined.edit_requests.extend(history.edit_requests)
+        combined.total_count = history.total_count
+        combined.has_more = history.has_more
+
+        if not history.has_more or not history.edit_requests:
+            break
+
+        offset += len(history.edit_requests)
+
+    return combined
+
+
+def _run_edit_history(args: argparse.Namespace) -> None:
+    history = (
+        _fetch_all_edit_history(args)
+        if args.all
+        else edit_history(**_edit_history_kwargs(args))
+    )
+    _print_edit_history(history, as_json=args.json)
+
+
 def _run_page(args: argparse.Namespace) -> None:
     page_obj = page(
         args.title,
@@ -172,9 +281,12 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     try:
         args = parser.parse_args(list(argv) if argv is not None else None)
+        _configure_verbose_logging(enabled=getattr(args, "debug", False))
 
         if args.command == "search":
             _run_search(args)
+        elif args.command == "edit-history":
+            _run_edit_history(args)
         elif args.command == "page":
             _run_page(args)
         elif args.command == "from-url":
