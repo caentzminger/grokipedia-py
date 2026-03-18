@@ -62,6 +62,37 @@ def test_edit_history_optional_empty_strings_normalize_to_none() -> None:
     assert entry.proposed_content == "the"
 
 
+def test_edit_history_preserves_whitespace_in_edit_contents() -> None:
+    payload = {
+        "editRequests": [
+            {
+                "id": "edit-1",
+                "slug": "Sample_Page",
+                "userId": "user-1",
+                "status": "EDIT_REQUEST_STATUS_APPROVED",
+                "type": "EDIT_REQUEST_TYPE_FIX_TYPO",
+                "summary": "Fix typo in lead",
+                "originalContent": " teh",
+                "proposedContent": " the\n",
+                "sectionTitle": "Overview",
+                "createdAt": 1767558005,
+                "updatedAt": 1767558074,
+                "upvoteCount": 3,
+                "downvoteCount": 1,
+                "reviewReason": "",
+            }
+        ],
+        "totalCount": 1,
+        "hasMore": False,
+    }
+
+    history = EditHistoryPage.from_dict(payload)
+
+    entry = history.edit_requests[0]
+    assert entry.original_content == " teh"
+    assert entry.proposed_content == " the\n"
+
+
 def test_parse_edit_history_json_rejects_non_object_payload() -> None:
     with pytest.raises(ParseError):
         parse_edit_history_json("[]")

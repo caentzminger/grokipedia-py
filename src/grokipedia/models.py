@@ -410,6 +410,13 @@ def _optional_non_empty_str(value: Any) -> str | None:
     return stripped or None
 
 
+def _optional_non_empty_preserve_ws_str(value: Any) -> str | None:
+    text = _optional_str(value)
+    if text is None or text == "":
+        return None
+    return text
+
+
 def _mapping_value(value: Mapping[str, Any], *keys: str, default: Any = None) -> Any:
     for key in keys:
         if key in value:
@@ -438,10 +445,10 @@ def _edit_history_entry_from_data(value: Any) -> EditHistoryEntry:
         status=str(value.get("status", "")),
         type=str(value.get("type", "")),
         summary=str(value.get("summary", "")),
-        original_content=_optional_non_empty_str(
+        original_content=_optional_non_empty_preserve_ws_str(
             _mapping_value(value, "originalContent", "original_content")
         ),
-        proposed_content=_optional_non_empty_str(
+        proposed_content=_optional_non_empty_preserve_ws_str(
             _mapping_value(value, "proposedContent", "proposed_content")
         ),
         section_title=_optional_non_empty_str(
