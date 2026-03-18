@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Mapping
+from typing import Any, Mapping, cast
 
 
 @dataclass(slots=True)
@@ -234,6 +234,12 @@ def _optional_str(value: Any) -> str | None:
     return str(value)
 
 
+def _string_mapping(value: object) -> Mapping[str, Any] | None:
+    if not isinstance(value, Mapping):
+        return None
+    return cast("Mapping[str, Any]", value)
+
+
 def _parse_datetime_utc(value: Any) -> datetime:
     if isinstance(value, datetime):
         dt = value
@@ -280,12 +286,13 @@ def _infobox_from_data(value: Any) -> list[InfoboxField]:
 
     fields: list[InfoboxField] = []
     for item in value:
-        if not isinstance(item, Mapping):
+        mapping_item = _string_mapping(item)
+        if mapping_item is None:
             continue
         fields.append(
             InfoboxField(
-                label=str(item.get("label", "")),
-                value=str(item.get("value", "")),
+                label=str(mapping_item.get("label", "")),
+                value=str(mapping_item.get("value", "")),
             )
         )
     return fields
@@ -316,15 +323,16 @@ def _section_media_from_data(value: Any) -> list[SectionMedia]:
 
     media: list[SectionMedia] = []
     for index, item in enumerate(value, start=1):
-        if not isinstance(item, Mapping):
+        mapping_item = _string_mapping(item)
+        if mapping_item is None:
             continue
 
-        raw_index = item.get("index")
+        raw_index = mapping_item.get("index")
         media_index = (
             raw_index if isinstance(raw_index, int) and raw_index > 0 else index
         )
 
-        image_url = str(item.get("image_url", ""))
+        image_url = str(mapping_item.get("image_url", ""))
         if not image_url:
             continue
 
@@ -332,8 +340,8 @@ def _section_media_from_data(value: Any) -> list[SectionMedia]:
             SectionMedia(
                 index=media_index,
                 image_url=image_url,
-                caption=_optional_str(item.get("caption")),
-                alt_text=_optional_str(item.get("alt_text")),
+                caption=_optional_str(mapping_item.get("caption")),
+                alt_text=_optional_str(mapping_item.get("alt_text")),
             )
         )
     return media
@@ -369,17 +377,18 @@ def _references_from_data(value: Any) -> list[Reference]:
 
     references: list[Reference] = []
     for index, item in enumerate(value, start=1):
-        if not isinstance(item, Mapping):
+        mapping_item = _string_mapping(item)
+        if mapping_item is None:
             continue
 
-        raw_index = item.get("index")
+        raw_index = mapping_item.get("index")
         ref_index = raw_index if isinstance(raw_index, int) and raw_index > 0 else index
 
         references.append(
             Reference(
                 index=ref_index,
-                text=str(item.get("text", "")),
-                url=_optional_str(item.get("url")),
+                text=str(mapping_item.get("text", "")),
+                url=_optional_str(mapping_item.get("url")),
             )
         )
     return references
