@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Typed edit-history fetching via `edit_history()` and `Grokipedia.edit_history()`.
+- `history.py` for parsing Grokipedia edit-history API responses.
+- CLI support for `edit-history`, including `--json`, `--all`, and `--debug`.
+- `Justfile` recipes for running tests and type checks across the supported Python version matrix.
+
+### Changed
+
+- Local type-checking now matches the CI Python matrix more closely.
+- README and repository guidance now document edit-history usage, matrix checks, and debug logging.
+
+### Removed
+
+- `Page.lede_text` alias for `intro_text`.
+- `Page.lead_media` alias for `lead_figure`.
+- `SITEMAP_INDEX` alias in the package exports.
+
 ## [0.3.0] - 2026-03-07
 
 ### Added
