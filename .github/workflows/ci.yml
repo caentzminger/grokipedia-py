@@ -32,7 +32,7 @@ jobs:
           enable-cache: true
 
       - name: Install dependencies
-        run: uv sync --locked --all-extras --all-groups
+        run: uv sync --frozen --all-extras --all-groups
 
       - name: Check Python formatting
         run: uv run --dev ruff format --check src/ tests/
