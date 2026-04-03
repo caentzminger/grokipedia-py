@@ -117,6 +117,7 @@ uvx grokipedia-py --timeout 5 --user-agent "grokipedia-py/cli" search "hello wor
 grokipedia-py search "hello world" --limit 5 --no-respect-robots
 grokipedia-py page '"Hello, World!" program'
 grokipedia-py page '"Hello, World!" program' --markdown
+grokipedia-py today --json
 grokipedia-py edit-history '"Hello, World!" program' --no-respect-robots
 grokipedia-py edit-history '"Hello, World!" program' --all --json --no-respect-robots
 grokipedia-py edit-history '"Hello, World!" program' --debug --no-respect-robots
@@ -135,12 +136,13 @@ Installed convenience commands:
 
 ```bash
 uv run grokipedia --help
+uv run gf --help
 python -m grokipedia --help
 ```
 
-The published package name is `grokipedia-py`. It also installs a `grokipedia`
-command for local convenience, but the supported published `uvx` invocation is
-`uvx grokipedia-py`.
+The published package name is `grokipedia-py`. It also installs `grokipedia`
+and `gf` commands for local convenience, but the supported published `uvx`
+invocation is `uvx grokipedia-py`.
 
 ## Docker
 
@@ -156,6 +158,7 @@ Examples:
 ```bash
 docker run --rm ghcr.io/caentzminger/grokipedia-py:latest search "hello world" --limit 5
 docker run --rm ghcr.io/caentzminger/grokipedia-py:latest page '"Hello, World!" program'
+docker run --rm ghcr.io/caentzminger/grokipedia-py:latest today
 docker run --rm ghcr.io/caentzminger/grokipedia-py:latest from-url "https://grokipedia.com/page/13065923" --json
 ```
 
@@ -253,6 +256,18 @@ GitHub Actions publishing is configured for both PyPI and Docker:
 - Builds multi-platform images (linux/amd64, linux/arm64).
 - Includes build attestations for provenance verification.
 - Runs tests before building to ensure image quality.
+
+## Jujutsu
+
+This repo is initialized for `jj` in colocated mode, so both `jj` and `git` work from the same
+working tree.
+
+- `jj status` shows the current working copy state.
+- `jj bookmark list` lists the local bookmarks.
+- `jj git fetch` updates the remote-tracking bookmarks from GitHub.
+- `jj bookmark track main codex/edit-history-draft-pr --remote origin` keeps the tracked
+  bookmarks aligned with `origin`.
+- `jj new main` creates a new change based on `main`.
 
 ## Robots behavior
 

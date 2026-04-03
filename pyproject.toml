@@ -33,6 +33,7 @@ classifiers = [
 dependencies = []
 
 [project.scripts]
+gf = "grokipedia.cli:main"
 grokipedia-py = "grokipedia.cli:main"
 grokipedia = "grokipedia.cli:main"
 

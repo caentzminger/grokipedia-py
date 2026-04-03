@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import sys
 from collections.abc import Sequence
+from datetime import datetime
 from pathlib import Path
 from typing import NoReturn, TypedDict
 
@@ -141,6 +142,20 @@ def _build_parser(*, prog: str | None = None) -> argparse.ArgumentParser:
         help="Print the parsed page as Markdown",
     )
 
+    today_parser = subparsers.add_parser("today", help="Fetch today's page")
+    _add_shared_arguments(today_parser)
+    today_output_group = today_parser.add_mutually_exclusive_group()
+    today_output_group.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the parsed page as JSON",
+    )
+    today_output_group.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Print the parsed page as Markdown",
+    )
+
     from_url_parser = subparsers.add_parser(
         "from-url",
         help="Fetch and parse a page from a full URL",
@@ -266,6 +281,16 @@ def _run_page(args: argparse.Namespace) -> None:
     _print_page(page_obj, as_json=args.json, as_markdown=args.markdown)
 
 
+def _run_today(args: argparse.Namespace) -> None:
+    title = datetime.now().strftime("%B_%-d")
+    page_obj = page(
+        title,
+        timeout=args.timeout,
+        user_agent=args.user_agent,
+    )
+    _print_page(page_obj, as_json=args.json, as_markdown=args.markdown)
+
+
 def _run_from_url(args: argparse.Namespace) -> None:
     page_obj = from_url(
         args.url,
@@ -289,6 +314,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             _run_edit_history(args)
         elif args.command == "page":
             _run_page(args)
+        elif args.command == "today":
+            _run_today(args)
         elif args.command == "from-url":
             _run_from_url(args)
         else:
